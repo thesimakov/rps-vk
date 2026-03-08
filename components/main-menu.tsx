@@ -2,7 +2,7 @@
 
 import { useGame } from "@/lib/game-context"
 import { formatAmount } from "@/lib/format-amount"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Trophy, Swords, User, ShoppingBag, Crown, Coins, Plus, Gift, Check, ListOrdered } from "lucide-react"
 import { VipBadgeOnFrame } from "@/components/player-avatar"
 import { PlayerAvatar } from "@/components/player-avatar"
@@ -20,10 +20,29 @@ const DAILY_REWARDS = [
   { day: 7, amount: 18, icon: "coin" as const },
 ]
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+/** Оставшееся время до следующего подарка (мс). 0 если уже можно забирать. */
+function msUntilNextGift(lastClaimedAt: number | undefined): number {
+  if (!lastClaimedAt) return 0
+  const elapsed = Date.now() - lastClaimedAt
+  if (elapsed >= MS_PER_DAY) return 0
+  return MS_PER_DAY - elapsed
+}
+
+/** Форматирует "через X ч Y мин" */
+function formatTimeUntil(ms: number): string {
+  if (ms <= 0) return ""
+  const totalMinutes = Math.ceil(ms / (60 * 1000))
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours > 0) return `через ${hours} ч ${minutes} мин`
+  return `через ${minutes} мин`
+}
+
 export function MainMenu() {
   const { setScreen, player, setPlayer } = useGame()
-  const [dailyClaimedUpTo, setDailyClaimedUpTo] = useState(0)
-  const [dailyStreak, setDailyStreak] = useState(1)
+  const [now, setNow] = useState(() => Date.now())
 
   const totalWins = player.wins + player.weekWins
   const levelIndex = Math.min(Math.floor(totalWins / LEVEL_STEPS), LEVELS.length - 1)
@@ -31,13 +50,29 @@ export function MainMenu() {
   const progressInLevel = totalWins % LEVEL_STEPS
   const progressDisplay = `${Math.min(progressInLevel, LEVEL_STEPS)}/${LEVEL_STEPS}`
 
-  const canClaimToday = dailyStreak <= 7 && dailyClaimedUpTo < dailyStreak
+  const lastClaimedAt = player.lastDailyGiftClaimedAt
+  const dailyIndex = typeof player.dailyRewardIndex === "number" ? player.dailyRewardIndex : 0
+  const msUntil = useMemo(() => msUntilNextGift(lastClaimedAt), [lastClaimedAt, now])
+  const canClaimGift = msUntil === 0
+  const timeUntilText = formatTimeUntil(msUntil)
+
+  useEffect(() => {
+    if (!canClaimGift) {
+      const t = setTimeout(() => setNow(Date.now()), 60 * 1000)
+      return () => clearTimeout(t)
+    }
+  }, [canClaimGift, now])
+
   const handleClaimDaily = () => {
-    if (!canClaimToday) return
-    const reward = DAILY_REWARDS[dailyClaimedUpTo]
+    if (!canClaimGift) return
+    const reward = DAILY_REWARDS[dailyIndex]
     const amount = reward.icon === "coin" ? reward.amount : reward.amount * 10
-    setPlayer((p) => ({ ...p, balance: p.balance + amount }))
-    setDailyClaimedUpTo((d) => d + 1)
+    setPlayer((p) => ({
+      ...p,
+      balance: p.balance + amount,
+      lastDailyGiftClaimedAt: Date.now(),
+      dailyRewardIndex: ((p.dailyRewardIndex ?? 0) + 1) % DAILY_REWARDS.length,
+    }))
   }
 
   return (
@@ -129,31 +164,37 @@ export function MainMenu() {
         </button>
       </div>
 
-      {/* Ежедневные награды */}
+      {/* Ежедневные награды: подарок раз в 24 ч, состояние сохраняется после обновления страницы */}
       <div className="w-full max-w-md mx-auto mb-5 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 p-4">
         <div className="flex items-center justify-between gap-2 mb-3">
           <p className="text-sm text-white/95 font-medium leading-tight">
             Заходи в игру каждый день и получай голоса
           </p>
-          <button
-            onClick={handleClaimDaily}
-            disabled={!canClaimToday}
-            className="px-4 py-2 rounded-xl bg-amber-400 text-amber-950 font-bold text-xs uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-300 transition-colors flex-shrink-0"
-          >
-            Забрать
-          </button>
+          {canClaimGift ? (
+            <button
+              onClick={handleClaimDaily}
+              className="px-4 py-2 rounded-xl bg-amber-400 text-amber-950 font-bold text-xs uppercase tracking-wide hover:bg-amber-300 transition-colors flex-shrink-0"
+            >
+              Забрать
+            </button>
+          ) : (
+            <span className="text-xs text-white/80 font-medium flex-shrink-0">
+              {timeUntilText}
+            </span>
+          )}
         </div>
         <div className="grid grid-cols-7 gap-1">
           {DAILY_REWARDS.map((r, i) => {
-            const claimed = i < dailyClaimedUpTo
-            const isToday = i === dailyClaimedUpTo && canClaimToday
+            const claimed = i < dailyIndex
+            const isCurrent = i === dailyIndex
+            const isAvailable = isCurrent && canClaimGift
             return (
               <div
                 key={r.day}
                 className={`flex flex-col items-center p-1.5 rounded-xl border text-center ${
                   claimed
                     ? "bg-emerald-500/20 border-emerald-400/40"
-                    : isToday
+                    : isAvailable
                     ? "bg-amber-400/20 border-amber-400/50"
                     : "bg-white/5 border-white/15"
                 }`}
