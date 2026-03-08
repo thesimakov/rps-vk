@@ -63,13 +63,18 @@ export interface VKOAuthMessagePayload {
   expires_in: number
 }
 
+export type VKOAuthPopupResult =
+  | { access_token: string; user_id: number; expires_in: number }
+  | { blocked: true }
+  | null
+
 /**
  * Открывает стационарное (всплывающее) окно ВК для запроса доступа к данным.
  * Пользователь принимает или отклоняет доступ; при принятии ВК перенаправляет на /vk-callback,
  * откуда в основное окно отправляется postMessage с токеном.
- * Возвращает Promise с данными или null при отмене/ошибке.
+ * Возвращает данные при успехе, { blocked: true } если попап заблокирован браузером, null при отмене пользователем.
  */
-export function openVKOAuthPopup(): Promise<{ access_token: string; user_id: number; expires_in: number } | null> {
+export function openVKOAuthPopup(): Promise<VKOAuthPopupResult> {
   return new Promise((resolve) => {
     if (typeof window === "undefined") {
       resolve(null)
@@ -87,7 +92,7 @@ export function openVKOAuthPopup(): Promise<{ access_token: string; user_id: num
       `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
     )
     if (!popup) {
-      resolve(null)
+      resolve({ blocked: true })
       return
     }
 
@@ -111,7 +116,7 @@ export function openVKOAuthPopup(): Promise<{ access_token: string; user_id: num
     const checkClosed = setInterval(() => {
       if (popup.closed) {
         cleanup()
-        resolve(null)
+        resolve(null) // пользователь закрыл окно без авторизации
       }
     }, 300)
 

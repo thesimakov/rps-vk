@@ -1,10 +1,17 @@
 "use client"
 
+import { useState } from "react"
 import { useGame } from "@/lib/game-context"
-import { LogIn, Trophy, Coins } from "lucide-react"
+import { LogIn, Trophy, Coins, Loader2 } from "lucide-react"
 
 export function EntryScreen() {
   const { setScreen, loginWithVK } = useGame()
+  const [loggingIn, setLoggingIn] = useState(false)
+
+  const handleLogin = () => {
+    setLoggingIn(true)
+    loginWithVK().finally(() => setLoggingIn(false))
+  }
 
   return (
     <div className="relative flex flex-col min-h-screen items-center justify-center px-4 py-8 arena-bg">
@@ -20,11 +27,17 @@ export function EntryScreen() {
 
         <div className="w-full flex flex-col gap-4">
           <button
-            onClick={() => loginWithVK()}
-            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-[#2787F5] hover:bg-[#5b9cf0] text-white font-bold text-lg transition-all active:scale-[0.98] shadow-lg shadow-[#2787F5]/30"
+            type="button"
+            onClick={handleLogin}
+            disabled={loggingIn}
+            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-[#2787F5] hover:bg-[#5b9cf0] text-white font-bold text-lg transition-all active:scale-[0.98] shadow-lg shadow-[#2787F5]/30 disabled:opacity-80 disabled:cursor-wait"
           >
-            <LogIn className="h-6 w-6" />
-            Войти через ВКонтакте
+            {loggingIn ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <LogIn className="h-6 w-6" />
+            )}
+            {loggingIn ? "Открываем ВКонтакте…" : "Войти через ВКонтакте"}
           </button>
           <p className="text-center text-xs text-white/50">
             Вход по аккаунту ВК — можно играть на сайте или в мини-приложении. Оплата и вывод — через ВК; позже подключаем другие способы оплаты.
