@@ -1,7 +1,16 @@
 "use client"
 
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react"
-import { initVKBridge, getVKUser, type VKUser } from "@/lib/vk-bridge"
+import { initVKBridge, getVKUser, getBridgeReady, type VKUser } from "@/lib/vk-bridge"
+import {
+  getVKOAuthRedirectUrl,
+  parseVKHashFragment,
+  fetchVKUserByToken,
+  saveVKOAuthSession,
+  getStoredVKOAuthSession,
+  clearVKOAuthSession,
+  isVKOAuthConfigured,
+} from "@/lib/vk-oauth"
 
 export type Move = "rock" | "scissors" | "paper" | "water"
 export type GameScreen =
@@ -480,32 +489,84 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     saveState(player, withdrawState, lavaCardStock)
   }, [hasLoadedSave, player, withdrawState, lavaCardStock])
 
-  // Initialize only VK Bridge; пользователь входит по кнопке «Войти» на экране входа
+  // Инициализация VK Bridge; при запуске на своём сервере — проверка OAuth callback или сохранённой сессии
   useEffect(() => {
     initVKBridge().finally(() => setIsLoading(false))
   }, [])
 
-  const loginWithVK = useCallback(async () => {
-    const user = await getVKUser()
-    if (user) {
-      setVkUser(user)
+  // На своём сервере (без Bridge): обработать возврат из VK OAuth или восстановить сессию из localStorage
+  useEffect(() => {
+    if (isLoading || getBridgeReady()) return
+    const hash = typeof window !== "undefined" ? window.location.hash : ""
+    const parsed = parseVKHashFragment(hash)
+    if (parsed) {
+      fetchVKUserByToken(parsed.access_token, parsed.user_id).then((user) => {
+        if (user) {
+          const expires_at = parsed.expires_in ? Math.floor(Date.now() / 1000) + parsed.expires_in : 0
+          saveVKOAuthSession({
+            access_token: parsed.access_token,
+            user_id: parsed.user_id,
+            expires_at,
+            user,
+          })
+          setVkUser(user)
+          setPlayer((p) => ({
+            ...p,
+            id: `vk_${user.id}`,
+            name: user.first_name,
+            avatar: user.first_name.charAt(0).toUpperCase(),
+            avatarUrl: user.photo_200 || user.photo_100 || "",
+            hideVkAvatar: p.hideVkAvatar ?? false,
+          }))
+          setScreen("menu")
+          window.history.replaceState(null, "", window.location.pathname + window.location.search)
+        }
+      })
+      return
+    }
+    const session = getStoredVKOAuthSession()
+    if (session) {
+      setVkUser(session.user)
       setPlayer((p) => ({
         ...p,
-        id: `vk_${user.id}`,
-        name: user.first_name,
-        avatar: user.first_name.charAt(0).toUpperCase(),
-        avatarUrl: user.photo_200 || user.photo_100 || "",
+        id: `vk_${session.user.id}`,
+        name: session.user.first_name,
+        avatar: session.user.first_name.charAt(0).toUpperCase(),
+        avatarUrl: session.user.photo_200 || session.user.photo_100 || "",
         hideVkAvatar: p.hideVkAvatar ?? false,
       }))
       setScreen("menu")
     }
-  }, [setScreen])
+  }, [isLoading])
+
+  const loginWithVK = useCallback(async () => {
+    if (getBridgeReady()) {
+      const user = await getVKUser()
+      if (user) {
+        setVkUser(user)
+        setPlayer((p) => ({
+          ...p,
+          id: `vk_${user.id}`,
+          name: user.first_name,
+          avatar: user.first_name.charAt(0).toUpperCase(),
+          avatarUrl: user.photo_200 || user.photo_100 || "",
+          hideVkAvatar: p.hideVkAvatar ?? false,
+        }))
+        setScreen("menu")
+      }
+      return
+    }
+    if (isVKOAuthConfigured()) {
+      window.location.href = getVKOAuthRedirectUrl()
+    }
+  }, [])
 
   const logoutWithVK = useCallback(() => {
+    clearVKOAuthSession()
     setVkUser(null)
     setPlayer((p) => ({ ...p, id: "player1", name: "Игрок", avatar: "И", avatarUrl: "" }))
     setScreen("entry")
-  }, [setScreen])
+  }, [])
 
   const pickRandomOpponent = useCallback(() => {
     const idx = Math.floor(Math.random() * OPPONENTS.length)
