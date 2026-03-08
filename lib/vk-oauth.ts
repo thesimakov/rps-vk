@@ -22,6 +22,12 @@ function getAppId(): string {
   return typeof process.env.NEXT_PUBLIC_VK_APP_ID === "string" ? process.env.NEXT_PUBLIC_VK_APP_ID : ""
 }
 
+/** Полный Redirect URI из .env — должен **дословно** совпадать с настройками приложения ВК (иначе Security Error). */
+function getConfiguredRedirectUri(): string | null {
+  const env = typeof process.env.NEXT_PUBLIC_VK_REDIRECT_URI === "string" ? process.env.NEXT_PUBLIC_VK_REDIRECT_URI.trim() : ""
+  return env || null
+}
+
 /**
  * Строит URL для редиректа на авторизацию VK (Implicit Flow).
  * redirect_uri должен совпадать с указанным в настройках приложения ВК.
@@ -46,11 +52,15 @@ export function getVKOAuthRedirectUrl(redirectUri?: string): string {
 
 /**
  * URL страницы, на которую ВК сделает редирект после авторизации в попапе.
- * Должен быть зарегистрирован в настройках приложения ВК (Redirect URI).
+ * Если задан NEXT_PUBLIC_VK_REDIRECT_URI — используем как есть (должен совпадать с ВК посимвольно).
+ * Иначе — текущий origin + /vk-callback. Иначе ВК вернёт Security Error.
  */
 export function getVKOAuthPopupCallbackUrl(): string {
   if (typeof window === "undefined") return ""
-  return `${window.location.origin}/vk-callback`
+  const configured = getConfiguredRedirectUri()
+  if (configured) return configured
+  const origin = window.location.origin.replace(/\/$/, "")
+  return `${origin}/vk-callback`
 }
 
 /** Тип сообщения от попапа callback к окну приложения */
