@@ -51,6 +51,17 @@ const variantMap = {
   muted: "bg-muted/30 border-border/30 text-foreground/60",
 }
 
+/** Обёртка: рисует иконку VIP поверх рамки (впереди рамки), когда аватар в vip-frame или gold-frame */
+export function VipBadgeOnFrame({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
+  const s = size === "sm" ? "w-4 h-4 -top-0.5 -right-0.5" : size === "lg" ? "w-6 h-6 -top-1 -right-1" : "w-5 h-5 -top-0.5 -right-0.5"
+  const icon = size === "sm" ? "h-2 w-2" : size === "lg" ? "h-3.5 w-3.5" : "h-2.5 w-2.5"
+  return (
+    <div className={`absolute z-10 ${s} rounded-full bg-amber-400 border border-amber-500 flex items-center justify-center shadow-sm pointer-events-none`}>
+      <Crown className={`${icon} text-amber-900`} />
+    </div>
+  )
+}
+
 export function PlayerAvatar({ name, avatar, avatarUrl, size = "md", variant = "primary", vip }: PlayerAvatarProps) {
   const [useLetter, setUseLetter] = useState(false)
   const sizeClass = sizeMap[size]
@@ -75,8 +86,8 @@ export function PlayerAvatar({ name, avatar, avatarUrl, size = "md", variant = "
         />
       )}
       {vip && (
-        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-accent/25 border border-accent/40 flex items-center justify-center">
-          <Crown className="h-2.5 w-2.5 text-accent" />
+        <div className="absolute -top-1 -right-1 z-[1] w-5 h-5 rounded-full bg-amber-400 border border-amber-500 flex items-center justify-center shadow-sm">
+          <Crown className="h-2.5 w-2.5 text-amber-900" />
         </div>
       )}
     </div>

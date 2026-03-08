@@ -1,9 +1,10 @@
 "use client"
 
 import { useGame, BOT_AVATAR_URL, MIN_BETS_DISPLAY, getFillerBetEntries } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import type { BetEntry, BetDuration } from "@/lib/game-context"
-import { AvatarImageOrLetter } from "@/components/player-avatar"
-import { ArrowLeft, Trophy, Coins, Plus, Star, UserPlus, X, Crown, Wallet, Pencil, Trash2 } from "lucide-react"
+import { AvatarImageOrLetter, VipBadgeOnFrame } from "@/components/player-avatar"
+import { ArrowLeft, Trophy, Coins, Plus, Star, UserPlus, X, Crown, Wallet, Pencil, Trash2, Flame, Sparkles } from "lucide-react"
 import { useState, useMemo, useEffect } from "react"
 import {
   Dialog,
@@ -19,8 +20,9 @@ import { Label } from "@/components/ui/label"
 const now = () => Date.now()
 
 export function BetsScreen() {
-  const { bets, player, createBet, removeBet, pendingBet, setScreen, setCurrentBet, setOpponent, setTotalRounds, clearPendingBet, updatePendingBetAmount, vkUser } = useGame()
+  const { bets, player, createBet, removeBet, pendingBet, setScreen, setCurrentBet, setOpponent, setTotalRounds, clearPendingBet, updatePendingBetAmount, vkUser, lavaCardStock, purchaseLavaCard } = useGame()
   const [createOpen, setCreateOpen] = useState(false)
+  const [lavaModalOpen, setLavaModalOpen] = useState(false)
   const [amount, setAmount] = useState("")
   const [duration, setDuration] = useState<BetDuration>("once")
   const [inviteBet, setInviteBet] = useState<BetEntry | null>(null)
@@ -72,6 +74,8 @@ export function BetsScreen() {
     }
   }
 
+  const canBuyLava = lavaCardStock > 0 && player.balance >= 120_000
+
   const handleInvite = (bet: BetEntry) => {
     removeBet(bet.id)
     const avatarUrl = bet.creatorAvatarUrl ?? (bet.creatorId.startsWith("bot") ? BOT_AVATAR_URL(bet.creatorId) : "")
@@ -85,7 +89,7 @@ export function BetsScreen() {
       losses: 20,
       weekWins: Math.floor(bet.creatorWins / 2),
       weekEarnings: bet.amount * 5,
-      vip: false,
+      vip: !!bet.vip,
     })
     setCurrentBet(bet.amount)
     setTotalRounds(1)
@@ -103,11 +107,36 @@ export function BetsScreen() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-bold text-foreground uppercase tracking-wider flex items-center justify-center gap-2">
+        <h1 className="flex-1 text-center text-base font-bold text-foreground uppercase tracking-wider flex items-center justify-center gap-2">
           <Trophy className="h-5 w-5 text-accent" />
           Ставки
         </h1>
         <div className="w-9" />
+      </div>
+
+      {/* Горячая новинка — карта Лава (над блоком ставки) */}
+      <div className="w-full max-w-md mx-auto mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="h-4 w-4 text-amber-400" />
+          <span className="text-base font-bold text-foreground uppercase tracking-wide">Горячая новинка</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setLavaModalOpen(true)}
+          className="w-full flex items-center gap-4 px-4 py-3 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 transition-colors text-left"
+        >
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center flex-shrink-0">
+            <Flame className="h-6 w-6 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-bold text-foreground">Карта «Лава»</p>
+            <p className="text-xs text-muted-foreground">В наличии: {lavaCardStock} из 3</p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Coins className="h-5 w-5 text-amber-500" />
+            <span className="text-base font-bold text-amber-500">{formatAmount(120_000)}</span>
+          </div>
+        </button>
       </div>
 
       <div className="w-full max-w-md mx-auto flex flex-col gap-4">
@@ -159,12 +188,28 @@ export function BetsScreen() {
                     : "bg-card/60 border-border/40 hover:bg-card/80 cursor-pointer"
                 }`}
               >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border flex-shrink-0 overflow-hidden bg-muted/40 text-foreground border-border/30">
-                  <AvatarImageOrLetter
-                    src={bet.creatorAvatarUrl || (bet.creatorId.includes("bot") ? BOT_AVATAR_URL(bet.creatorId) : null)}
-                    letter={bet.creatorAvatar}
-                  />
-                </div>
+                {bet.vip ? (
+                  <div className="relative inline-flex flex-shrink-0">
+                    <div className="vip-frame-outer w-12 h-12">
+                      <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border overflow-hidden bg-muted/40 text-foreground border-border/30">
+                          <AvatarImageOrLetter
+                            src={bet.creatorAvatarUrl || (bet.creatorId.includes("bot") ? BOT_AVATAR_URL(bet.creatorId) : null)}
+                            letter={bet.creatorAvatar}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <VipBadgeOnFrame size="sm" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border flex-shrink-0 overflow-hidden bg-muted/40 text-foreground border-border/30">
+                    <AvatarImageOrLetter
+                      src={bet.creatorAvatarUrl || (bet.creatorId.includes("bot") ? BOT_AVATAR_URL(bet.creatorId) : null)}
+                      letter={bet.creatorAvatar}
+                    />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {isMyBet && (
@@ -172,7 +217,7 @@ export function BetsScreen() {
                         Моя ставка
                       </span>
                     )}
-                    <span className="font-semibold text-foreground">
+                    <span className="font-semibold text-base text-foreground">
                       {isMyBet ? "Вы" : bet.creatorName}
                     </span>
                     {bet.vip && <Crown className="h-4 w-4 text-accent flex-shrink-0" />}
@@ -185,7 +230,7 @@ export function BetsScreen() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Coins className="h-4 w-4 text-accent" />
-                  <span className="font-bold text-accent tabular-nums">{bet.amount}</span>
+                  <span className="font-bold text-base text-accent tabular-nums">{formatAmount(bet.amount)}</span>
                 </div>
               </button>
             )
@@ -215,8 +260,8 @@ export function BetsScreen() {
                   onChange={(e) => setEditAmount(e.target.value)}
                   className="text-lg font-bold tabular-nums"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Сейчас: {pendingBet.amount} голосов. Баланс: {player.balance + pendingBet.amount}
+                <p className="text-base text-muted-foreground">
+                  Сейчас: {formatAmount(pendingBet.amount)} голосов. Баланс: {formatAmount(player.balance + pendingBet.amount)}
                 </p>
               </div>
               <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -258,7 +303,7 @@ export function BetsScreen() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            У вас нет денег на поддержать ставку{noMoneyBet ? ` (${noMoneyBet.amount} голосов)` : ""}. Пополните баланс, чтобы принять участие в игре.
+            У вас нет денег на поддержать ставку{noMoneyBet ? ` (${formatAmount(noMoneyBet.amount)} голосов)` : ""}. Пополните баланс, чтобы принять участие в игре.
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNoMoneyBet(null)}>
@@ -281,16 +326,32 @@ export function BetsScreen() {
           {inviteBet && (
             <>
               <div className="flex items-center gap-3 px-2 py-2 rounded-xl bg-muted/20">
-                <div className="w-12 h-12 rounded-xl bg-muted/40 flex items-center justify-center text-lg font-bold border border-border/30 overflow-hidden">
-                  <AvatarImageOrLetter
-                    src={inviteBet.creatorAvatarUrl || (inviteBet.creatorId.includes("bot") ? BOT_AVATAR_URL(inviteBet.creatorId) : null)}
-                    letter={inviteBet.creatorAvatar}
-                  />
-                </div>
+                {inviteBet.vip ? (
+                  <div className="relative inline-flex flex-shrink-0">
+                    <div className="vip-frame-outer w-14 h-14">
+                      <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-muted/40 flex items-center justify-center text-lg font-bold border border-border/30 overflow-hidden">
+                          <AvatarImageOrLetter
+                            src={inviteBet.creatorAvatarUrl || (inviteBet.creatorId.includes("bot") ? BOT_AVATAR_URL(inviteBet.creatorId) : null)}
+                            letter={inviteBet.creatorAvatar}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <VipBadgeOnFrame size="md" />
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-muted/40 flex items-center justify-center text-lg font-bold border border-border/30 overflow-hidden">
+                    <AvatarImageOrLetter
+                      src={inviteBet.creatorAvatarUrl || (inviteBet.creatorId.includes("bot") ? BOT_AVATAR_URL(inviteBet.creatorId) : null)}
+                      letter={inviteBet.creatorAvatar}
+                    />
+                  </div>
+                )}
                 <div>
-                  <p className="font-semibold text-foreground">{inviteBet.creatorName}</p>
+                  <p className="font-semibold text-base text-foreground">{inviteBet.creatorName}</p>
                   <p className="text-sm text-muted-foreground">{inviteBet.creatorWins} побед</p>
-                  <p className="text-sm text-accent font-bold">{inviteBet.amount} голосов</p>
+                  <p className="text-base text-accent font-bold">{formatAmount(inviteBet.amount)} голосов</p>
                 </div>
               </div>
               <DialogFooter className="gap-2 sm:gap-0">
@@ -329,7 +390,7 @@ export function BetsScreen() {
               className="bg-muted/30 border-border"
             />
             <p className="text-xs text-muted-foreground">
-              Баланс: <span className="font-semibold text-accent">{player.balance}</span> голосов
+              Баланс: <span className="font-semibold text-base text-accent">{formatAmount(player.balance)}</span> голосов
             </p>
             <div className="grid gap-2 pt-2">
               <Label>Держать ставку</Label>
@@ -366,6 +427,42 @@ export function BetsScreen() {
               disabled={!amount || parseInt(amount, 10) < 1 || player.balance < parseInt(amount, 10)}
             >
               Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Модалка карты «Лава» */}
+      <Dialog open={lavaModalOpen} onOpenChange={setLavaModalOpen}>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
+                <Flame className="h-4 w-4 text-white" />
+              </div>
+              Карта «Лава»
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Карта уничтожает любую карту соперника. Можно использовать 5 раз. Рекомендуем при турнире.
+          </p>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-sm text-muted-foreground">В наличии: {lavaCardStock} из 3</span>
+            <span className="flex items-center gap-1 text-base text-amber-500 font-bold">
+              <Coins className="h-4 w-4" /> {formatAmount(120_000)} голосов
+            </span>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLavaModalOpen(false)}>
+              Закрыть
+            </Button>
+            <Button
+              onClick={() => {
+                if (purchaseLavaCard()) setLavaModalOpen(false)
+              }}
+              disabled={!canBuyLava}
+            >
+              Купить
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,8 +1,10 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { useState } from "react"
 import { Trophy, Swords, User, ShoppingBag, Crown, Coins, Plus, Gift, Check, ListOrdered } from "lucide-react"
+import { VipBadgeOnFrame } from "@/components/player-avatar"
 import { PlayerAvatar } from "@/components/player-avatar"
 
 const LEVELS = ["Супер новичок", "Новичок", "Игрок", "Мастер", "Легенда"]
@@ -45,7 +47,7 @@ export function MainMenu() {
         <div className="w-12 h-12 rounded-full border-2 border-white/30 flex items-center justify-center mb-2">
           <span className="text-2xl" aria-hidden>🙌</span>
         </div>
-        <p className="text-sm text-white/90 font-medium">Твой уровень: {levelName}</p>
+        <p className="text-base text-white/90 font-medium">Твой уровень: {levelName}</p>
         <div className="w-full max-w-[200px] mt-1.5 flex items-center gap-2">
           <div className="flex-1 h-2 bg-white/15 rounded-full overflow-hidden">
             <div
@@ -59,23 +61,57 @@ export function MainMenu() {
 
       {/* Валюта: аватар слева, поле и кнопка одной высоты */}
       <div className="w-full max-w-md mx-auto flex items-center gap-3 mb-5">
-        <div className="h-12 w-12 flex-shrink-0 rounded-full overflow-hidden border-2 border-amber-400/40 bg-amber-400/10 flex items-center justify-center">
-          <PlayerAvatar
-            name={player.name}
-            avatar={player.avatar}
-            avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
-            size="sm"
-            variant="primary"
-            vip={player.vip}
-          />
-        </div>
+        {player.avatarFrame === "gold" ? (
+          <div className="relative inline-flex flex-shrink-0">
+            <div className="gold-frame-outer h-12 w-12">
+              <div className="gold-frame-inner w-full h-full">
+                <PlayerAvatar
+                  name={player.name}
+                  avatar={player.avatar}
+                  avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+                  size="sm"
+                  variant="primary"
+                  vip={false}
+                />
+              </div>
+            </div>
+            {player.vip && <VipBadgeOnFrame size="sm" />}
+          </div>
+        ) : player.vip ? (
+          <div className="relative inline-flex flex-shrink-0">
+            <div className="vip-frame-outer h-12 w-12">
+              <div className="vip-frame-inner w-full h-full">
+                <PlayerAvatar
+                  name={player.name}
+                  avatar={player.avatar}
+                  avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+                  size="sm"
+                  variant="primary"
+                  vip={false}
+                />
+              </div>
+            </div>
+            <VipBadgeOnFrame size="sm" />
+          </div>
+        ) : (
+          <div className="h-12 w-12 flex-shrink-0 rounded-full overflow-hidden border-2 border-amber-400/40 bg-amber-400/10 flex items-center justify-center">
+            <PlayerAvatar
+              name={player.name}
+              avatar={player.avatar}
+              avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+              size="sm"
+              variant="primary"
+              vip={false}
+            />
+          </div>
+        )}
         <div className="flex-1 min-w-0 h-12 flex items-center gap-3 rounded-full bg-amber-400/25 border-2 border-amber-400/70 px-4">
           <div className="w-8 h-8 rounded-full bg-amber-400/40 flex items-center justify-center flex-shrink-0">
             <Coins className="h-4 w-4 text-amber-500" />
           </div>
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xl font-black text-amber-500 tabular-nums truncate">{player.balance}</span>
-            <span className="text-sm font-medium text-white/90 flex-shrink-0">голосов</span>
+            <span className="text-base font-black text-amber-500 tabular-nums truncate">{formatAmount(player.balance)}</span>
+            <span className="text-base font-medium text-white/90 flex-shrink-0">голосов</span>
           </div>
           {player.vip && (
             <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/30 text-amber-600 text-[10px] font-bold uppercase flex-shrink-0">

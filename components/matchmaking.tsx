@@ -1,9 +1,10 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { useEffect, useState } from "react"
 import { Coins, Search, X } from "lucide-react"
-import { PlayerAvatar } from "@/components/player-avatar"
+import { PlayerAvatar, VipBadgeOnFrame } from "@/components/player-avatar"
 
 const NORMAL_SEARCH_MS = 2500
 const FAST_SEARCH_MS = 800
@@ -40,8 +41,8 @@ export function Matchmaking() {
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8">
       <div className="flex items-center gap-2.5 bg-card/60 backdrop-blur-sm border border-accent/20 rounded-full px-5 py-2.5 mb-10">
         <Coins className="h-4 w-4 text-accent" />
-        <span className="text-lg font-extrabold text-accent tabular-nums">{currentBet}</span>
-        <span className="text-xs font-medium text-muted-foreground">голосов</span>
+        <span className="text-base font-extrabold text-accent tabular-nums">{formatAmount(currentBet)}</span>
+        <span className="text-base font-medium text-muted-foreground">голосов</span>
       </div>
       <div className="relative mb-8">
         <div className="w-28 h-28 rounded-full border-2 border-muted/30 flex items-center justify-center">
@@ -50,17 +51,35 @@ export function Matchmaking() {
         </div>
         <div className="absolute -inset-4 bg-primary/6 rounded-full blur-2xl" />
       </div>
-      <h2 className="text-2xl font-bold text-foreground mb-2">Ищем соперника{dots}</h2>
+      <h2 className="text-base font-bold text-foreground mb-2">Ищем соперника{dots}</h2>
       {opponent && (
         <div className="flex items-center gap-3 mb-6 px-4 py-2 rounded-2xl bg-card/40 border border-border/30">
-          <PlayerAvatar
-            name={opponent.name}
-            avatar={opponent.avatar}
-            avatarUrl={opponent.avatarUrl}
-            size="md"
-            variant="destructive"
-          />
-          <p className="text-sm font-semibold text-foreground">Найден: {opponent.name}</p>
+          {opponent.vip ? (
+            <div className="relative inline-flex flex-shrink-0">
+              <div className="vip-frame-outer w-16 h-16">
+                <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                  <PlayerAvatar
+                    name={opponent.name}
+                    avatar={opponent.avatar}
+                    avatarUrl={opponent.avatarUrl}
+                    size="md"
+                    variant="destructive"
+                    vip={false}
+                  />
+                </div>
+              </div>
+              <VipBadgeOnFrame size="md" />
+            </div>
+          ) : (
+            <PlayerAvatar
+              name={opponent.name}
+              avatar={opponent.avatar}
+              avatarUrl={opponent.avatarUrl}
+              size="md"
+              variant="destructive"
+            />
+          )}
+          <p className="text-base font-semibold text-foreground">Найден: {opponent.name}</p>
         </div>
       )}
       {!opponent && (

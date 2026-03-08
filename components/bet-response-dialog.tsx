@@ -1,6 +1,7 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import {
   Dialog,
   DialogContent,
@@ -31,13 +32,13 @@ export function BetResponseDialog() {
             {betResponse.responderAvatar}
           </div>
           <div className="flex-1">
-            <p className="font-bold text-foreground">{betResponse.responderName}</p>
+            <p className="font-bold text-base text-foreground">{betResponse.responderName}</p>
             <p className="text-sm text-muted-foreground">
               {betResponse.responderWins} побед
             </p>
             <div className="flex items-center gap-1.5 mt-1">
               <Coins className="h-4 w-4 text-accent" />
-              <span className="font-bold text-accent tabular-nums">{betResponse.amount} голосов</span>
+              <span className="font-bold text-base text-accent tabular-nums">{formatAmount(betResponse.amount)} голосов</span>
             </div>
           </div>
         </div>

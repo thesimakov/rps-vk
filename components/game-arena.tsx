@@ -1,18 +1,37 @@
 "use client"
 
 import { useGame, type Move } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { Coins, Timer, Zap, Heart } from "lucide-react"
-import { PlayerAvatar } from "@/components/player-avatar"
+import { PlayerAvatar, VipBadgeOnFrame } from "@/components/player-avatar"
 
-const MOVES: { key: Move; label: string; icon: string; color: string }[] = [
+const BASE_MOVES: { key: Move; label: string; icon: string; color: string }[] = [
   { key: "rock", label: "Камень", icon: "\uD83E\uDEA8", color: "border-secondary/50 shadow-secondary/10" },
   { key: "scissors", label: "Ножницы", icon: "\u2702\uFE0F", color: "border-destructive/50 shadow-destructive/10" },
   { key: "paper", label: "Бумага", icon: "\uD83D\uDCC4", color: "border-primary/50 shadow-primary/10" },
 ]
 
+const WATER_MOVE: { key: Move; label: string; icon: string; color: string } = {
+  key: "water",
+  label: "Вода",
+  icon: "\uD83C\uDF0A",
+  color: "border-sky-500/50 shadow-sky-500/10",
+}
+
 function getOutcome(p: Move, o: Move): "win" | "loss" | "draw" {
   if (p === o) return "draw"
+  // Вода: побеждает камень, проигрывает бумаге, ничья с ножницами
+  if (p === "water") {
+    if (o === "rock") return "win"
+    if (o === "paper") return "loss"
+    return "draw" // water vs scissors
+  }
+  if (o === "water") {
+    if (p === "rock") return "loss"
+    if (p === "paper") return "win"
+    return "draw" // scissors vs water
+  }
   if (
     (p === "rock" && o === "scissors") ||
     (p === "scissors" && o === "paper") ||
@@ -30,6 +49,7 @@ function getRandomMove(): Move {
 function getMoveThatBeats(move: Move): Move {
   if (move === "rock") return "paper"
   if (move === "scissors") return "rock"
+  if (move === "water") return "paper" // бумага бьёт воду
   return "scissors"
 }
 
@@ -41,6 +61,9 @@ function getOutcomePhrase(playerMove: Move, opponentMove: Move, outcome: "win" |
   if (winner === "rock" && loser === "scissors") return "Камень разбил ножницы"
   if (winner === "scissors" && loser === "paper") return "Ножницы порезали бумагу"
   if (winner === "paper" && loser === "rock") return "Бумага обернула камень"
+  if (winner === "water" && loser === "rock") return "Вода размыла камень"
+  if (winner === "paper" && loser === "water") return "Бумага впитала воду"
+  if (winner === "water" || loser === "water") return outcome === "win" ? "Победа!" : "Поражение!"
   return outcome === "win" ? "Победа!" : "Поражение!"
 }
 
@@ -48,6 +71,8 @@ type Phase = "choosing" | "locked" | "revealing" | "resolved"
 
 export function GameArena() {
   const { opponent, player, setPlayer, currentBet, setLastResult, setScreen, totalRounds } = useGame()
+  const hasWaterCard = (player.waterCardUses ?? 0) > 0
+  const MOVES = hasWaterCard ? [...BASE_MOVES, WATER_MOVE] : BASE_MOVES
 
   const [timeLeft, setTimeLeft] = useState(15)
   const [selectedMove, setSelectedMove] = useState<Move | null>(null)
@@ -58,6 +83,8 @@ export function GameArena() {
   const [drawMessage, setDrawMessage] = useState(false)
   /** Подсказка что произошло в раунде (победа/поражение) — для 3 и 5 раундов */
   const [roundHintMessage, setRoundHintMessage] = useState<string | null>(null)
+  /** Показать карту соперника с небольшой задержкой после выбора игрока */
+  const [showOpponentCard, setShowOpponentCard] = useState(false)
 
   // Ref to prevent double-resolution
   const resolvedRef = useRef(false)
@@ -84,9 +111,13 @@ export function GameArena() {
       const oppMove =
         isBot && currentBet > 100 ? getMoveThatBeats(playerMove) : getRandomMove()
 
-      // Immediately lock and show opponent card
       setPhase("locked")
       setOpponentMove(oppMove)
+      setShowOpponentCard(false)
+
+      // Небольшая задержка перед открытием карты соперника
+      const cardRevealTimer = setTimeout(() => setShowOpponentCard(true), 500)
+      timersRef.current.push(cardRevealTimer)
 
       // After a beat, reveal
       const revealTimer = setTimeout(() => {
@@ -99,6 +130,7 @@ export function GameArena() {
             setDrawMessage(false)
             setSelectedMove(null)
             setOpponentMove(null)
+            setShowOpponentCard(false)
             setPhase("choosing")
             setTimeLeft(15)
             resolvedRef.current = false
@@ -116,14 +148,20 @@ export function GameArena() {
         const winnings = pot - commission
         const earnings = outcome === "win" ? winnings - currentBet : -currentBet
 
-        setPlayer((p) => ({
-          ...p,
-          balance: p.balance + earnings,
-          wins: outcome === "win" ? p.wins + 1 : p.wins,
-          losses: outcome === "loss" ? p.losses + 1 : p.losses,
-          weekWins: outcome === "win" ? p.weekWins + 1 : p.weekWins,
-          weekEarnings: outcome === "win" ? p.weekEarnings + winnings : p.weekEarnings,
-        }))
+        setPlayer((p) => {
+          const next = {
+            ...p,
+            balance: p.balance + earnings,
+            wins: outcome === "win" ? p.wins + 1 : p.wins,
+            losses: outcome === "loss" ? p.losses + 1 : p.losses,
+            weekWins: outcome === "win" ? p.weekWins + 1 : p.weekWins,
+            weekEarnings: outcome === "win" ? p.weekEarnings + winnings : p.weekEarnings,
+          }
+          if (playerMove === "water") {
+            next.waterCardUses = Math.max(0, (p.waterCardUses ?? 0) - 1)
+          }
+          return next
+        })
 
         setLastResult({
           playerMove,
@@ -144,6 +182,7 @@ export function GameArena() {
             setRoundCount(nextRound)
             setSelectedMove(null)
             setOpponentMove(null)
+            setShowOpponentCard(false)
             setPhase("choosing")
             setTimeLeft(15)
             resolvedRef.current = false
@@ -204,15 +243,15 @@ export function GameArena() {
         <div className="flex items-center gap-2">
           <Coins className="h-5 w-5 text-amber-400 flex-shrink-0" />
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-white/90 uppercase tracking-wider">Банк</span>
-            <span className="text-sm font-bold text-amber-400 tabular-nums leading-tight">
-              {bankAmount} <span className="text-white/70 font-medium text-xs">голосов</span>
+            <span className="text-base font-bold text-white/90 uppercase tracking-wider">Банк</span>
+            <span className="text-base font-bold text-amber-400 tabular-nums leading-tight">
+              {formatAmount(bankAmount)} <span className="text-white/70 font-medium text-base">голосов</span>
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-red-400 flex-shrink-0" />
-          <span className="text-xs font-bold text-white uppercase tracking-widest">
+          <span className="text-base font-bold text-white uppercase tracking-widest">
             Раунд {roundCount}{totalRounds > 1 ? ` из ${totalRounds}` : ""}
           </span>
           <div className="flex gap-0.5">
@@ -228,18 +267,36 @@ export function GameArena() {
 
       {/* Соперник: аватар, имя, карта с анимацией переворота */}
       <div className="flex flex-col items-center gap-2 w-full max-w-md mx-auto">
-        <div className="rounded-2xl overflow-hidden border-2 border-red-500/30 bg-red-500/10 flex-shrink-0">
-          <PlayerAvatar
-            name={opponentData.name}
-            avatar={opponentData.avatar}
-            avatarUrl={opponentData.avatarUrl}
-            size="md"
-            variant="destructive"
-          />
-        </div>
+        {opponentData.vip ? (
+          <div className="relative inline-flex flex-shrink-0">
+            <div className="vip-frame-outer w-16 h-16">
+              <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                <PlayerAvatar
+                  name={opponentData.name}
+                  avatar={opponentData.avatar}
+                  avatarUrl={opponentData.avatarUrl}
+                  size="md"
+                  variant="destructive"
+                  vip={false}
+                />
+              </div>
+            </div>
+            <VipBadgeOnFrame size="md" />
+          </div>
+        ) : (
+          <div className="rounded-2xl overflow-hidden border-2 border-red-500/30 bg-red-500/10 flex-shrink-0">
+            <PlayerAvatar
+              name={opponentData.name}
+              avatar={opponentData.avatar}
+              avatarUrl={opponentData.avatarUrl}
+              size="md"
+              variant="destructive"
+            />
+          </div>
+        )}
         <span className="text-base font-bold text-white">{opponentData.name}</span>
         <div
-          className={`card-flip-wrap w-28 h-36 ${phase === "revealing" && opponentMove ? "flipped" : ""}`}
+          className={`card-flip-wrap w-28 h-36 ${phase !== "choosing" && opponentMove && showOpponentCard ? "flipped" : ""}`}
         >
           <div className="card-flip-inner w-full h-full">
             <div className="card-flip-front card-medieval card-medieval-back">
@@ -308,7 +365,7 @@ export function GameArena() {
             >
               <div
                 className={`card-medieval w-20 h-28 flex flex-col items-center justify-center gap-0 ${
-                  isSelected ? "card-medieval-selected" : player.cardSkin === "gold" ? "card-medieval-selected" : move.key === "scissors" ? "card-medieval-scissors" : ""
+                  isSelected ? "card-medieval-selected" : player.cardSkin === "gold" ? "card-medieval-selected" : move.key === "scissors" ? "card-medieval-scissors" : move.key === "water" ? "border-sky-500/40" : ""
                 }`}
               >
                 <span className="card-symbol-icon text-3xl">{move.icon}</span>
@@ -321,23 +378,57 @@ export function GameArena() {
 
       {/* Игрок: аватар, имя, голоса */}
       <div className="mt-auto flex flex-col items-center w-full max-w-md mx-auto pb-2">
-        <div
-          className={`rounded-full overflow-hidden border-2 flex-shrink-0 ${
-            player.avatarFrame === "neon"
-              ? "border-cyan-400/70 bg-cyan-500/10 shadow-md shadow-cyan-400/20"
-              : "border-primary/40 bg-primary/10"
-          }`}
-        >
-          <PlayerAvatar
-            name={player.name}
-            avatar={player.avatar}
-            avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
-            size="md"
-            variant="primary"
-          />
-        </div>
+        {player.avatarFrame === "gold" ? (
+          <div className="relative inline-flex flex-shrink-0">
+            <div className="gold-frame-outer w-16 h-16">
+              <div className="gold-frame-inner w-full h-full">
+                <PlayerAvatar
+                  name={player.name}
+                  avatar={player.avatar}
+                  avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+                  size="md"
+                  variant="accent"
+                  vip={false}
+                />
+              </div>
+            </div>
+            {player.vip && <VipBadgeOnFrame size="md" />}
+          </div>
+        ) : player.vip ? (
+          <div className="relative inline-flex flex-shrink-0">
+            <div className="vip-frame-outer w-16 h-16">
+              <div className="vip-frame-inner w-full h-full">
+                <PlayerAvatar
+                  name={player.name}
+                  avatar={player.avatar}
+                  avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+                  size="md"
+                  variant="accent"
+                  vip={false}
+                />
+              </div>
+            </div>
+            <VipBadgeOnFrame size="md" />
+          </div>
+        ) : (
+          <div
+            className={`rounded-full overflow-hidden border-2 flex-shrink-0 ${
+              player.avatarFrame === "neon"
+                ? "border-cyan-400/70 bg-cyan-500/10 shadow-md shadow-cyan-400/20"
+                : "border-primary/40 bg-primary/10"
+            }`}
+          >
+            <PlayerAvatar
+              name={player.name}
+              avatar={player.avatar}
+              avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+              size="md"
+              variant="primary"
+            />
+          </div>
+        )}
         <span className="text-base font-bold text-white mt-2">{player.name}</span>
-        <span className="text-sm text-white/70">{player.balance} голосов</span>
+        <span className="text-base text-white/70">{formatAmount(player.balance)} голосов</span>
       </div>
 
       {/* Надпись снизу */}

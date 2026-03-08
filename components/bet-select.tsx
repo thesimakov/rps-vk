@@ -1,6 +1,7 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { ArrowLeft, Coins, Flame } from "lucide-react"
 
 /** Ставка и режим: 5,10 = быстрая игра (1 ход); 25,50 = 3 хода; 100,250 = 5 ходов */
@@ -46,7 +47,7 @@ export function BetSelect() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-bold text-foreground uppercase tracking-wider">
+        <h1 className="flex-1 text-center text-base font-bold text-foreground uppercase tracking-wider">
           Выбор ставки
         </h1>
         <div className="w-9" />
@@ -55,8 +56,8 @@ export function BetSelect() {
       {/* Balance */}
       <div className="flex items-center gap-2.5 bg-card/60 backdrop-blur-sm border border-accent/20 rounded-full px-5 py-2.5 mb-6">
         <Coins className="h-4 w-4 text-accent" />
-        <span className="text-xl font-extrabold text-accent tabular-nums">{player.balance}</span>
-        <span className="text-xs font-medium text-muted-foreground">голосов</span>
+        <span className="text-base font-extrabold text-accent tabular-nums">{formatAmount(player.balance)}</span>
+        <span className="text-base font-medium text-muted-foreground">голосов</span>
       </div>
 
       <p className="text-muted-foreground text-sm mb-6 text-center font-medium">
@@ -81,9 +82,9 @@ export function BetSelect() {
             >
               <div className="flex items-center gap-1.5">
                 <Coins className={`h-5 w-5 ${canAfford ? "text-accent" : "text-muted-foreground"}`} />
-                <span className="text-3xl font-extrabold tabular-nums">{value}</span>
+                <span className="text-base font-extrabold tabular-nums">{formatAmount(value)}</span>
               </div>
-              <span className="text-xs font-medium text-muted-foreground">голосов</span>
+              <span className="text-base font-medium text-muted-foreground">голосов</span>
               <span className={`mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${badge.cls}`}>
                 {badge.label}
               </span>

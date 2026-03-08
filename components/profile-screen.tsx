@@ -1,9 +1,10 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { ArrowLeft, Coins, Crown, Trophy, Skull, Percent, Calendar, Medal, ArrowDownToLine, Pencil, Check, UserMinus, LogOut } from "lucide-react"
 import { useState } from "react"
-import { PlayerAvatar } from "@/components/player-avatar"
+import { PlayerAvatar, VipBadgeOnFrame } from "@/components/player-avatar"
 
 const MIN_BALANCE_FOR_WITHDRAW = 200
 const HIDE_AVATAR_PRICE = 100
@@ -42,7 +43,7 @@ export function ProfileScreen() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-bold text-foreground uppercase tracking-wider">
+        <h1 className="flex-1 text-center text-base font-bold text-foreground uppercase tracking-wider">
           Профиль
         </h1>
         <div className="w-9" />
@@ -51,14 +52,48 @@ export function ProfileScreen() {
       {/* Avatar + Name (аватар из ВК, можно отключить за 100 голосов) */}
       <div className="flex flex-col items-center gap-3 mb-6">
         <div className="relative">
-          <PlayerAvatar
-            name={player.name}
-            avatar={player.avatar}
-            avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
-            size="lg"
-            variant={player.vip ? "accent" : "primary"}
-            vip={player.vip}
-          />
+          {player.avatarFrame === "gold" ? (
+            <div className="relative inline-flex flex-shrink-0">
+              <div className="gold-frame-outer w-[5.5rem] h-[5.5rem]">
+                <div className="gold-frame-inner w-full h-full flex items-center justify-center">
+                  <PlayerAvatar
+                    name={player.name}
+                    avatar={player.avatar}
+                    avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+                    size="lg"
+                    variant="accent"
+                    vip={false}
+                  />
+                </div>
+              </div>
+              {player.vip && <VipBadgeOnFrame size="lg" />}
+            </div>
+          ) : player.vip ? (
+            <div className="relative inline-flex flex-shrink-0">
+              <div className="vip-frame-outer w-[5.5rem] h-[5.5rem]">
+                <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                  <PlayerAvatar
+                    name={player.name}
+                    avatar={player.avatar}
+                    avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+                    size="lg"
+                    variant="accent"
+                    vip={false}
+                  />
+                </div>
+              </div>
+              <VipBadgeOnFrame size="lg" />
+            </div>
+          ) : (
+            <PlayerAvatar
+              name={player.name}
+              avatar={player.avatar}
+              avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl}
+              size="lg"
+              variant="primary"
+              vip={false}
+            />
+          )}
         </div>
         <div className="text-center flex flex-col items-center gap-2">
           {isEditingName ? (
@@ -82,7 +117,7 @@ export function ProfileScreen() {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-extrabold text-foreground">{player.name}</h2>
+              <h2 className="text-base font-extrabold text-foreground">{player.name}</h2>
               <button
                 onClick={() => {
                   setNameInput(player.name)
@@ -131,8 +166,8 @@ export function ProfileScreen() {
         <div className="flex-1 bg-card/50 backdrop-blur-sm border border-accent/20 rounded-2xl p-4 flex items-center gap-3">
           <Coins className="h-5 w-5 text-accent" />
           <div>
-            <span className="text-2xl font-extrabold text-accent tabular-nums">{player.balance}</span>
-            <p className="text-[10px] text-muted-foreground font-medium uppercase">голосов</p>
+            <span className="text-base font-extrabold text-accent tabular-nums">{formatAmount(player.balance)}</span>
+            <p className="text-base text-muted-foreground font-medium uppercase">голосов</p>
           </div>
         </div>
         <div className="w-28 bg-card/50 backdrop-blur-sm border border-primary/20 rounded-2xl p-4 flex flex-col items-center justify-center">
@@ -146,22 +181,22 @@ export function ProfileScreen() {
       <div className="w-full max-w-md grid grid-cols-2 gap-3 mb-4">
         <div className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4 flex flex-col items-center gap-1">
           <Trophy className="h-4 w-4 text-primary mb-1" />
-          <span className="text-2xl font-extrabold text-foreground tabular-nums">{player.wins}</span>
+          <span className="text-base font-extrabold text-foreground tabular-nums">{player.wins}</span>
           <span className="text-xs text-muted-foreground font-medium">Побед</span>
         </div>
         <div className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4 flex flex-col items-center gap-1">
           <Skull className="h-4 w-4 text-destructive mb-1" />
-          <span className="text-2xl font-extrabold text-foreground tabular-nums">{player.losses}</span>
+          <span className="text-base font-extrabold text-foreground tabular-nums">{player.losses}</span>
           <span className="text-xs text-muted-foreground font-medium">Поражений</span>
         </div>
         <div className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4 flex flex-col items-center gap-1">
           <Percent className="h-4 w-4 text-accent mb-1" />
-          <span className="text-2xl font-extrabold text-foreground tabular-nums">{winRate}%</span>
+          <span className="text-base font-extrabold text-foreground tabular-nums">{winRate}%</span>
           <span className="text-xs text-muted-foreground font-medium">Винрейт</span>
         </div>
         <div className="bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4 flex flex-col items-center gap-1">
           <Calendar className="h-4 w-4 text-secondary mb-1" />
-          <span className="text-2xl font-extrabold text-foreground tabular-nums">{player.weekWins}</span>
+          <span className="text-base font-extrabold text-foreground tabular-nums">{player.weekWins}</span>
           <span className="text-xs text-muted-foreground font-medium">За неделю</span>
         </div>
       </div>
@@ -172,7 +207,7 @@ export function ProfileScreen() {
           <span className="text-sm text-muted-foreground font-medium">Заработано за неделю</span>
           <div className="flex items-center gap-1.5">
             <Coins className="h-3.5 w-3.5 text-accent" />
-            <span className="text-lg font-extrabold text-primary tabular-nums">{player.weekEarnings}</span>
+            <span className="text-base font-extrabold text-primary tabular-nums">{formatAmount(player.weekEarnings)}</span>
           </div>
         </div>
       </div>

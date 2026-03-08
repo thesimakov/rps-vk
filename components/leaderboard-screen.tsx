@@ -1,7 +1,9 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { ArrowLeft, Trophy, Crown, Coins, Medal } from "lucide-react"
+import { VipBadgeOnFrame } from "@/components/player-avatar"
 
 function getMedalStyle(rank: number) {
   if (rank === 1) return "bg-accent/20 text-accent border border-accent/30"
@@ -33,7 +35,7 @@ export function LeaderboardScreen() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-bold text-foreground flex items-center justify-center gap-2 uppercase tracking-wider">
+        <h1 className="flex-1 text-center text-base font-bold text-foreground flex items-center justify-center gap-2 uppercase tracking-wider">
           <Trophy className="h-5 w-5 text-accent" />
           ТОП-10 Недели
         </h1>
@@ -44,9 +46,9 @@ export function LeaderboardScreen() {
       <div className="w-full max-w-md mb-4 bg-primary/8 border border-primary/25 rounded-2xl px-4 py-3 flex items-center justify-between backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <Medal className="h-5 w-5 text-primary" />
-          <span className="text-sm font-semibold text-foreground">Ваше место в рейтинге</span>
+          <span className="text-base font-semibold text-foreground">Ваше место в рейтинге</span>
         </div>
-        <span className="text-2xl font-extrabold text-primary">#{playerRank}</span>
+        <span className="text-base font-extrabold text-primary">#{playerRank}</span>
       </div>
 
       <p className="text-xs text-muted-foreground mb-4 font-medium">
@@ -68,34 +70,67 @@ export function LeaderboardScreen() {
             </div>
 
             {/* Avatar */}
-            <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 border overflow-hidden ${
-                entry.isPlayer
-                  ? "bg-primary/15 border-primary/40 text-primary"
-                  : entry.rank <= 3
-                  ? "bg-accent/10 border-accent/25 text-accent"
-                  : "bg-muted/30 border-border/30 text-foreground/60"
-              }`}
-            >
-              {entry.isPlayer
-                ? (player.hideVkAvatar || !player.avatarUrl ? (
-                    <span>{entry.avatar}</span>
-                  ) : (
-                    <img src={player.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ))
-                : entry.avatarUrl
-                  ? (
-                    <img src={entry.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  )
-                  : (
-                    <span>{entry.avatar}</span>
-                  )}
-            </div>
+            {entry.vip ? (
+              <div className="relative inline-flex flex-shrink-0">
+                <div className="vip-frame-outer w-12 h-12">
+                  <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold border overflow-hidden ${
+                        entry.isPlayer
+                          ? "bg-primary/15 border-primary/40 text-primary"
+                          : entry.rank <= 3
+                          ? "bg-accent/10 border-accent/25 text-accent"
+                          : "bg-muted/30 border-border/30 text-foreground/60"
+                      }`}
+                    >
+                      {entry.isPlayer
+                        ? (player.hideVkAvatar || !player.avatarUrl ? (
+                            <span>{entry.avatar}</span>
+                          ) : (
+                            <img src={player.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          ))
+                        : entry.avatarUrl
+                          ? (
+                            <img src={entry.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          )
+                          : (
+                            <span>{entry.avatar}</span>
+                          )}
+                    </div>
+                  </div>
+                </div>
+                <VipBadgeOnFrame size="sm" />
+              </div>
+            ) : (
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 border overflow-hidden ${
+                  entry.isPlayer
+                    ? "bg-primary/15 border-primary/40 text-primary"
+                    : entry.rank <= 3
+                    ? "bg-accent/10 border-accent/25 text-accent"
+                    : "bg-muted/30 border-border/30 text-foreground/60"
+                }`}
+              >
+                {entry.isPlayer
+                  ? (player.hideVkAvatar || !player.avatarUrl ? (
+                      <span>{entry.avatar}</span>
+                    ) : (
+                      <img src={player.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ))
+                  : entry.avatarUrl
+                    ? (
+                      <img src={entry.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    )
+                    : (
+                      <span>{entry.avatar}</span>
+                    )}
+              </div>
+            )}
 
             {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className={`text-sm font-semibold truncate ${entry.isPlayer ? "text-primary" : "text-foreground"}`}>
+                <span className={`text-base font-semibold truncate ${entry.isPlayer ? "text-primary" : "text-foreground"}`}>
                   {entry.isPlayer ? "Вы" : entry.name}
                 </span>
                 {entry.vip && <Crown className="h-3.5 w-3.5 text-accent flex-shrink-0" />}
@@ -108,7 +143,7 @@ export function LeaderboardScreen() {
             {/* Earnings */}
             <div className="flex items-center gap-1">
               <Coins className="h-3.5 w-3.5 text-accent" />
-              <span className="text-sm font-bold text-accent tabular-nums">{entry.earnings}</span>
+              <span className="text-base font-bold text-accent tabular-nums">{formatAmount(entry.earnings)}</span>
             </div>
           </div>
         ))}
@@ -116,15 +151,15 @@ export function LeaderboardScreen() {
 
       {/* Weekly rewards */}
       <div className="w-full max-w-md mt-6 bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4">
-        <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2 uppercase tracking-wide">
+        <h3 className="text-base font-bold text-foreground mb-3 flex items-center gap-2 uppercase tracking-wide">
           <Crown className="h-4 w-4 text-accent" />
           Награды
         </h3>
-        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground font-medium">
-          <span>{"1 место \u2192 200 голосов"}</span>
-          <span>{"2 место \u2192 100 голосов"}</span>
-          <span>{"3 место \u2192 50 голосов"}</span>
-          <span>{"4-10 место \u2192 10 голосов"}</span>
+        <div className="grid grid-cols-2 gap-2 text-base text-muted-foreground font-medium">
+          <span>{"1 место → "}{formatAmount(200)}{" голосов"}</span>
+          <span>{"2 место → "}{formatAmount(100)}{" голосов"}</span>
+          <span>{"3 место → "}{formatAmount(50)}{" голосов"}</span>
+          <span>{"4-10 место → "}{formatAmount(10)}{" голосов"}</span>
         </div>
       </div>
     </div>

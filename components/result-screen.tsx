@@ -1,14 +1,16 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
-import { Trophy, Skull, Minus, Coins, RotateCcw, ArrowRight, Zap, Heart, Hammer, Scissors, FileText, Moon, Sun } from "lucide-react"
-import { PlayerAvatar } from "@/components/player-avatar"
+import { formatAmount } from "@/lib/format-amount"
+import { Trophy, Skull, Minus, Coins, RotateCcw, ArrowRight, Zap, Heart, Hammer, Scissors, FileText, Moon, Sun, Droplets } from "lucide-react"
+import { PlayerAvatar, VipBadgeOnFrame } from "@/components/player-avatar"
 import { useState, useEffect } from "react"
 
 const MOVE_LABELS: Record<string, { icon: string; label: string }> = {
   rock: { icon: "\uD83E\uDEA8", label: "Камень" },
   scissors: { icon: "\u2702\uFE0F", label: "Ножницы" },
   paper: { icon: "\uD83D\uDCC4", label: "Бумага" },
+  water: { icon: "\uD83C\uDF0A", label: "Вода" },
 }
 
 /** Текст исхода: что произошло (бумага обернула камень, ножницы порезали бумагу и т.д.) */
@@ -19,6 +21,8 @@ function getOutcomePhrase(playerMove: string | null, opponentMove: string | null
   if (winner === "rock" && loser === "scissors") return "Камень разбил ножницы"
   if (winner === "scissors" && loser === "paper") return "Ножницы порезали бумагу"
   if (winner === "paper" && loser === "rock") return "Бумага обернула камень"
+  if (winner === "water" && loser === "rock") return "Вода размыла камень"
+  if (winner === "paper" && loser === "water") return "Бумага впитала воду"
   return null
 }
 
@@ -31,6 +35,8 @@ function OutcomeIcon({ playerMove, opponentMove, outcome }: { playerMove: string
   if (winner === "rock" && loser === "scissors") return <Hammer className={cls} title="Камень бьёт ножницы" />
   if (winner === "scissors" && loser === "paper") return <Scissors className={cls} title="Ножницы режут бумагу" />
   if (winner === "paper" && loser === "rock") return <FileText className={cls} title="Бумага накрывает камень" />
+  if (winner === "water" && loser === "rock") return <Droplets className={cls} title="Вода размыла камень" />
+  if (winner === "paper" && loser === "water") return <FileText className={cls} title="Бумага впитала воду" />
   return <Minus className={cls} />
 }
 
@@ -158,15 +164,15 @@ export function ResultScreen() {
         <div className="flex items-center gap-2">
           <Coins className="h-5 w-5 text-amber-400 flex-shrink-0" />
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-white/90 uppercase tracking-wider">Банк</span>
-            <span className="text-sm font-bold text-amber-400 tabular-nums leading-tight">
-              {bankAmount} <span className="text-white/70 font-medium text-xs">голосов</span>
+            <span className="text-base font-bold text-white/90 uppercase tracking-wider">Банк</span>
+            <span className="text-base font-bold text-amber-400 tabular-nums leading-tight">
+              {formatAmount(bankAmount)} <span className="text-white/70 font-medium text-base">голосов</span>
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-red-400 flex-shrink-0" />
-          <span className="text-xs font-bold text-white uppercase tracking-widest">
+          <span className="text-base font-bold text-white uppercase tracking-widest">
             Раунд {totalRounds} из {totalRounds}
           </span>
           <div className="flex gap-0.5">
@@ -187,7 +193,7 @@ export function ResultScreen() {
             <Moon className="h-14 w-14 text-indigo-300 drop-shadow-lg" strokeWidth={1.5} />
             <Sun className="h-16 w-16 text-amber-300 drop-shadow-lg" strokeWidth={1.5} />
           </div>
-          <h1 className="result-title-in text-2xl sm:text-3xl font-black uppercase tracking-wide text-amber-200/95 mb-2" style={{ animationDelay: "0.1s" }}>
+          <h1 className="result-title-in text-base font-black uppercase tracking-wide text-amber-200/95 mb-2" style={{ animationDelay: "0.1s" }}>
             Кто-то уснул
           </h1>
           <div className="flex items-end gap-1 mb-4" style={{ minHeight: "2.5rem" }}>
@@ -212,7 +218,7 @@ export function ResultScreen() {
             <Skull className={`result-icon-in h-8 w-8 text-red-400 ${"result-icon-lose-pulse"}`} style={{ animationDelay: "0.2s" }} />
           )}
           <h1
-            className={`result-title-in text-2xl font-black uppercase tracking-wide ${
+            className={`result-title-in text-base font-black uppercase tracking-wide ${
               isWin ? "text-sky-300" : isDraw ? "text-amber-400" : "text-red-400"
             }`}
             style={{ animationDelay: "0.25s" }}
@@ -231,15 +237,35 @@ export function ResultScreen() {
             }`}
           >
             <span className="card-symbol-icon text-5xl sm:text-6xl">{playerMoveInfo.icon}</span>
-            <span className="text-xs font-bold text-[#1f1a14] mt-1 uppercase tracking-wide">{playerMoveInfo.label}</span>
+            <span className="text-base font-bold text-[#1f1a14] mt-1 uppercase tracking-wide">{playerMoveInfo.label}</span>
           </div>
-          <div
-            className={`rounded-xl overflow-hidden border-2 bg-sky-500/10 ${
-              player.avatarFrame === "neon" ? "border-cyan-400/80 shadow-lg shadow-cyan-400/30" : "border-sky-400/30"
-            }`}
-          >
-            <PlayerAvatar name={player.name} avatar={player.avatar} avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl} size="md" variant="primary" />
-          </div>
+          {player.avatarFrame === "gold" ? (
+            <div className="relative inline-flex flex-shrink-0">
+              <div className="gold-frame-outer w-16 h-16">
+                <div className="gold-frame-inner w-full h-full flex items-center justify-center">
+                  <PlayerAvatar name={player.name} avatar={player.avatar} avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl} size="md" variant="primary" vip={false} />
+                </div>
+              </div>
+              {player.vip && <VipBadgeOnFrame size="md" />}
+            </div>
+          ) : player.vip ? (
+            <div className="relative inline-flex flex-shrink-0">
+              <div className="vip-frame-outer w-16 h-16">
+                <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                  <PlayerAvatar name={player.name} avatar={player.avatar} avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl} size="md" variant="primary" vip={false} />
+                </div>
+              </div>
+              <VipBadgeOnFrame size="md" />
+            </div>
+          ) : (
+            <div
+              className={`rounded-xl overflow-hidden border-2 bg-sky-500/10 ${
+                player.avatarFrame === "neon" ? "border-cyan-400/80 shadow-lg shadow-cyan-400/30" : "border-sky-400/30"
+              }`}
+            >
+              <PlayerAvatar name={player.name} avatar={player.avatar} avatarUrl={player.hideVkAvatar ? undefined : player.avatarUrl} size="md" variant="primary" />
+            </div>
+          )}
         </div>
 
         <div className="result-center-in flex flex-col items-center justify-center pb-20 sm:pb-24 gap-2" style={{ animationDelay: "0.5s" }}>
@@ -256,11 +282,22 @@ export function ResultScreen() {
         <div className="result-card-right flex flex-col items-center gap-3" style={{ animationDelay: "0.4s" }}>
           <div className="card-medieval card-medieval-opponent w-32 h-40 sm:w-36 sm:h-44 flex flex-col items-center justify-center gap-0">
             <span className="card-symbol-icon text-5xl sm:text-6xl">{opponentMoveInfo.icon}</span>
-            <span className="text-xs font-bold text-[#1f1a14] mt-1 uppercase tracking-wide">{opponentMoveInfo.label}</span>
+            <span className="text-base font-bold text-[#1f1a14] mt-1 uppercase tracking-wide">{opponentMoveInfo.label}</span>
           </div>
-          <div className="rounded-xl overflow-hidden border-2 border-red-400/30 bg-red-500/10">
-            <PlayerAvatar name={opponentData.name} avatar={opponentData.avatar} avatarUrl={opponentData.avatarUrl} size="md" variant="destructive" />
-          </div>
+          {opponentData.vip ? (
+            <div className="relative inline-flex flex-shrink-0">
+              <div className="vip-frame-outer w-16 h-16">
+                <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                  <PlayerAvatar name={opponentData.name} avatar={opponentData.avatar} avatarUrl={opponentData.avatarUrl} size="md" variant="destructive" vip={false} />
+                </div>
+              </div>
+              <VipBadgeOnFrame size="md" />
+            </div>
+          ) : (
+            <div className="rounded-xl overflow-hidden border-2 border-red-400/30 bg-red-500/10">
+              <PlayerAvatar name={opponentData.name} avatar={opponentData.avatar} avatarUrl={opponentData.avatarUrl} size="md" variant="destructive" />
+            </div>
+          )}
         </div>
       </div>
         </>
@@ -273,11 +310,11 @@ export function ResultScreen() {
       >
         <Coins className="h-5 w-5 text-amber-400" />
         <span
-          className={`text-lg font-bold tabular-nums ${
+          className={`text-base font-bold tabular-nums ${
             lastResult.earnings > 0 ? "text-amber-400" : lastResult.earnings < 0 ? "text-red-400" : "text-amber-400"
           }`}
         >
-          {lastResult.earnings > 0 ? "+" : ""}{lastResult.earnings} голосов
+          {lastResult.earnings > 0 ? "+" : ""}{formatAmount(lastResult.earnings)} голосов
         </span>
       </div>
 

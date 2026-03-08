@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { purchaseVKVoices, isVKEnvironment } from "@/lib/vk-bridge"
-import { ArrowLeft, Crown, Zap, Sparkles, Box, Palette, Coins, Wallet } from "lucide-react"
+import { ArrowLeft, Crown, Zap, Sparkles, Box, Palette, Coins, Wallet, Flame, Droplets } from "lucide-react"
 
 interface ShopItem {
   id: string
@@ -80,6 +81,15 @@ const SHOP_ITEMS: ShopItem[] = [
     color: "text-primary",
   },
   {
+    id: "frame-gold",
+    name: "Рамка: Золото",
+    description: "Золотая рамка аватара с анимацией",
+    price: 25,
+    icon: <Palette className="h-5 w-5" />,
+    category: "cosmetic",
+    color: "text-accent",
+  },
+  {
     id: "tournament-entry",
     name: "Турнир дня",
     description: "16 игроков, призовой фонд 500+ голосов",
@@ -87,6 +97,24 @@ const SHOP_ITEMS: ShopItem[] = [
     icon: <Crown className="h-5 w-5" />,
     category: "tournament",
     color: "text-secondary",
+  },
+  {
+    id: "lava-card",
+    name: "Карта «Лава»",
+    description: "Уничтожает любую карту соперника. 5 использований. Рекомендуем при турнире.",
+    price: 120_000,
+    icon: <Flame className="h-5 w-5" />,
+    category: "special",
+    color: "text-destructive",
+  },
+  {
+    id: "water-card",
+    name: "Карта «Вода»",
+    description: "Побеждает камень. Проигрывает бумаге. Ничья с ножницами. 3 использования.",
+    price: 20,
+    icon: <Droplets className="h-5 w-5" />,
+    category: "special",
+    color: "text-primary",
   },
 ]
 
@@ -158,7 +186,7 @@ function applyPrize(prize: ChestPrize, player: { balance: number; fastMatchBoost
 }
 
 export function ShopScreen() {
-  const { setScreen, player, setPlayer } = useGame()
+  const { setScreen, player, setPlayer, lavaCardStock, purchaseLavaCard, purchaseWaterCard } = useGame()
   const [topUpLoading, setTopUpLoading] = useState<number | null>(null)
   const [openingChest, setOpeningChest] = useState<{ type: ChestType; prizes: ChestPrize[] } | null>(null)
   const [chestPhase, setChestPhase] = useState<"fly" | "open" | "reward" | "collect">("fly")
@@ -207,6 +235,15 @@ export function ShopScreen() {
   const handleBuy = (item: ShopItem) => {
     if (player.balance < item.price) return
 
+    if (item.id === "lava-card") {
+      purchaseLavaCard()
+      return
+    }
+    if (item.id === "water-card") {
+      purchaseWaterCard()
+      return
+    }
+
     if (item.id === "chest-basic" || item.id === "chest-premium") {
       const type: ChestType = item.id === "chest-basic" ? "basic" : "premium"
       const count = type === "premium" ? 3 : 2
@@ -234,6 +271,9 @@ export function ShopScreen() {
         case "frame-neon":
           updated.avatarFrame = "neon"
           break
+        case "frame-gold":
+          updated.avatarFrame = "gold"
+          break
         case "tournament-entry":
           updated.tournamentEntry = true
           updated.balance += 50
@@ -254,12 +294,12 @@ export function ShopScreen() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-bold text-foreground uppercase tracking-wider">
+        <h1 className="flex-1 text-center text-base font-bold text-foreground uppercase tracking-wider">
           Магазин
         </h1>
         <div className="flex items-center gap-1.5 bg-card/60 backdrop-blur-sm border border-border/30 rounded-full px-3 py-1.5">
           <Coins className="h-3.5 w-3.5 text-accent" />
-          <span className="font-bold text-accent text-sm tabular-nums">{player.balance}</span>
+          <span className="font-bold text-accent text-base tabular-nums">{formatAmount(player.balance)}</span>
         </div>
       </div>
 
@@ -267,7 +307,7 @@ export function ShopScreen() {
       <div className="w-full max-w-md mb-6 bg-primary/10 border border-primary/25 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
           <Wallet className="h-5 w-5 text-primary" />
-          <span className="font-bold text-foreground">Пополнить баланс (ВК голоса)</span>
+          <span className="font-bold text-base text-foreground">Пополнить баланс (ВК голоса)</span>
         </div>
         <p className="text-xs text-muted-foreground mb-3">
           Оплата через ВКонтакте — списание голосов с вашего аккаунта.
@@ -300,9 +340,16 @@ export function ShopScreen() {
             (item.id === "vip" && player.vip) ||
             (item.id === "victory-anim" && player.victoryAnimation) ||
             (item.id === "card-skin" && player.cardSkin) ||
-            (item.id === "frame-neon" && player.avatarFrame) ||
+            (item.id === "frame-neon" && player.avatarFrame === "neon") ||
+            (item.id === "frame-gold" && player.avatarFrame === "gold") ||
             (item.id === "tournament-entry" && player.tournamentEntry)
-          const canBuy = canAfford && !alreadyOwned
+          const lavaOutOfStock = item.id === "lava-card" && lavaCardStock <= 0
+          const canBuy =
+            item.id === "lava-card"
+              ? canAfford && !lavaOutOfStock
+              : item.id === "water-card"
+                ? canAfford
+                : canAfford && !alreadyOwned
           return (
             <div
               key={item.id}
@@ -312,22 +359,25 @@ export function ShopScreen() {
                 {item.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-bold text-foreground">{item.name}</h3>
+                <h3 className="text-base font-bold text-foreground">{item.name}</h3>
                 <p className="text-xs text-muted-foreground font-medium leading-relaxed">{item.description}</p>
+                {item.id === "lava-card" && (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">В наличии: {lavaCardStock} из 3</p>
+                )}
               </div>
               <button
                 onClick={() => handleBuy(item)}
                 disabled={!canBuy}
-                className={`flex items-center gap-1 px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                className={`flex items-center gap-1 px-3.5 py-2 rounded-xl text-base font-bold transition-all flex-shrink-0 ${
                   canBuy
                     ? "bg-primary text-primary-foreground cursor-pointer active:scale-95 shadow-md shadow-primary/20"
                     : "bg-muted/30 text-muted-foreground border border-border/30 cursor-not-allowed"
                 }`}
               >
-                {alreadyOwned ? "Куплено" : (
+                {item.id === "lava-card" && lavaOutOfStock ? "Нет в наличии" : alreadyOwned ? "Куплено" : (
                   <>
                     <Coins className="h-3 w-3" />
-                    {item.price}
+                    {formatAmount(item.price)}
                   </>
                 )}
               </button>
@@ -397,7 +447,7 @@ export function ShopScreen() {
                     {prize.kind === "coins" || prize.kind === "voices_small" || prize.kind === "voices_medium" ? (
                       <>
                         <Coins className="w-6 h-6 text-accent shrink-0" />
-                        <span className="font-bold text-accent">+{prize.amount} голосов</span>
+                        <span className="font-bold text-base text-accent">+{formatAmount(prize.amount ?? 0)} голосов</span>
                       </>
                     ) : prize.kind === "bonus" || prize.kind === "double_bonus" ? (
                       <>

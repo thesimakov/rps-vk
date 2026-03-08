@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { useGame } from "@/lib/game-context"
-import { AvatarImageOrLetter } from "@/components/player-avatar"
+import { formatAmount } from "@/lib/format-amount"
+import { AvatarImageOrLetter, VipBadgeOnFrame } from "@/components/player-avatar"
 import { Trophy, Crown, ArrowUp, ArrowDown } from "lucide-react"
 
 export function WeeklyRanking() {
@@ -84,7 +85,7 @@ export function WeeklyRanking() {
         className="flex items-center gap-2 px-2 py-1 hover:opacity-80 transition-opacity cursor-pointer"
       >
         <Trophy className="h-4 w-4 text-accent" />
-        <span className="font-bold text-sm text-foreground tracking-wide uppercase">
+        <span className="font-bold text-base text-foreground tracking-wide uppercase">
           Топ недели
         </span>
       </button>
@@ -116,19 +117,38 @@ export function WeeklyRanking() {
                 {entry.rank}
               </div>
 
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden ${
-                  entry.isPlayer
-                    ? "bg-primary/20 text-primary border border-primary/40"
-                    : "bg-muted/40 text-foreground/60 border border-border/30"
-                }`}
-              >
-                <AvatarImageOrLetter src={entry.avatarUrl} letter={entry.avatar} />
-              </div>
+              {entry.vip ? (
+                <div className="relative inline-flex flex-shrink-0">
+                  <div className="vip-frame-outer w-10 h-10">
+                    <div className="vip-frame-inner w-full h-full flex items-center justify-center">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold overflow-hidden ${
+                          entry.isPlayer
+                            ? "bg-primary/20 text-primary border border-primary/40"
+                            : "bg-muted/40 text-foreground/60 border border-border/30"
+                        }`}
+                      >
+                        <AvatarImageOrLetter src={entry.avatarUrl} letter={entry.avatar} />
+                      </div>
+                    </div>
+                  </div>
+                  <VipBadgeOnFrame size="sm" />
+                </div>
+              ) : (
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden ${
+                    entry.isPlayer
+                      ? "bg-primary/20 text-primary border border-primary/40"
+                      : "bg-muted/40 text-foreground/60 border border-border/30"
+                  }`}
+                >
+                  <AvatarImageOrLetter src={entry.avatarUrl} letter={entry.avatar} />
+                </div>
+              )}
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
-                  <span className={`text-xs font-semibold truncate ${entry.isPlayer ? "text-primary" : "text-foreground"}`}>
+                  <span className={`text-base font-semibold truncate ${entry.isPlayer ? "text-primary" : "text-foreground"}`}>
                     {entry.isPlayer ? "Вы" : entry.name}
                   </span>
                   {entry.vip && <Crown className="h-3 w-3 text-accent flex-shrink-0" />}
@@ -138,8 +158,8 @@ export function WeeklyRanking() {
                 </span>
               </div>
 
-              <span className="text-xs font-bold text-accent tabular-nums flex-shrink-0 transition-all duration-300">
-                {entry.earnings}
+              <span className="text-base font-bold text-accent tabular-nums flex-shrink-0 transition-all duration-300">
+                {formatAmount(entry.earnings)}
               </span>
             </div>
           ))}
@@ -174,8 +194,8 @@ export function WeeklyRanking() {
               {winsLabel} {winsLabel === 1 ? "победа" : winsLabel >= 2 && winsLabel <= 4 ? "победы" : "побед"}
             </span>
           </div>
-          <span className="text-sm font-extrabold text-accent tabular-nums flex-shrink-0 transition-all duration-300">
-            {earningsLabel}
+            <span className="text-base font-extrabold text-accent tabular-nums flex-shrink-0 transition-all duration-300">
+            {formatAmount(earningsLabel)}
           </span>
         </div>
       </div>

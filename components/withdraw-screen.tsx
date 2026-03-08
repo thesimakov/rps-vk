@@ -1,6 +1,7 @@
 "use client"
 
 import { useGame } from "@/lib/game-context"
+import { formatAmount } from "@/lib/format-amount"
 import { useState } from "react"
 import { requestWithdraw, isVKEnvironment } from "@/lib/vk-bridge"
 import { ArrowLeft, Coins, ArrowDownToLine, CheckCircle2, AlertCircle } from "lucide-react"
@@ -61,7 +62,7 @@ export function WithdrawScreen() {
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="flex-1 text-center text-xl font-black text-foreground uppercase tracking-wider">
+        <h1 className="flex-1 text-center text-base font-black text-foreground uppercase tracking-wider">
           Вывод средств
         </h1>
         <div className="w-10" />
@@ -74,7 +75,7 @@ export function WithdrawScreen() {
         </div>
         <div>
           <p className="text-xs text-muted-foreground font-medium uppercase">Доступно</p>
-          <p className="text-3xl font-black text-accent tabular-nums">{player.balance}</p>
+          <p className="text-base font-black text-accent tabular-nums">{formatAmount(player.balance)}</p>
         </div>
       </div>
 
@@ -105,7 +106,7 @@ export function WithdrawScreen() {
             key={v}
             onClick={() => { setAmount(String(v)); setStatus("idle") }}
             disabled={player.balance < v}
-            className={`flex-1 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 ${
+            className={`flex-1 py-3 rounded-2xl text-base font-bold transition-all active:scale-95 ${
               numAmount === v
                 ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                 : player.balance >= v
@@ -113,22 +114,22 @@ export function WithdrawScreen() {
                 : "bg-muted/20 text-muted-foreground/40 cursor-not-allowed"
             }`}
           >
-            {v}
+            {formatAmount(v)}
           </button>
         ))}
       </div>
 
       {/* Лимит за день */}
       <div className="w-full max-w-md bg-card/40 border border-border/20 rounded-2xl p-4 mb-4">
-        <p className="text-xs text-muted-foreground font-medium">
-          Осталось вывести сегодня: <span className="font-bold text-foreground">{remainingDaily}</span> из {MAX_WITHDRAW_PER_DAY.toLocaleString("ru")} голосов
+        <p className="text-base text-muted-foreground font-medium">
+          Осталось вывести сегодня: <span className="font-bold text-base text-foreground">{formatAmount(remainingDaily)}</span> из {formatAmount(MAX_WITHDRAW_PER_DAY)} голосов
         </p>
       </div>
 
       {/* Info */}
       <div className="w-full max-w-md bg-card/40 border border-border/20 rounded-2xl p-4 mb-6">
-        <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-          Вывод доступен при балансе от {MIN_BALANCE_FOR_WITHDRAW} голосов. Не более {MAX_WITHDRAW_PER_DAY.toLocaleString("ru")} в день. Минимальная сумма заявки: 10 голосов. Обработка до 24 часов.
+        <p className="text-base text-muted-foreground font-medium leading-relaxed">
+          Вывод доступен при балансе от {formatAmount(MIN_BALANCE_FOR_WITHDRAW)} голосов. Не более {formatAmount(MAX_WITHDRAW_PER_DAY)} в день. Минимальная сумма заявки: 10 голосов. Обработка до 24 часов.
         </p>
         {!isVKEnvironment() && (
           <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 font-medium">
