@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { initVKBridge, getVKUser, type VKUser } from "@/lib/vk-bridge"
 
-export type Move = "rock" | "scissors" | "paper"
+export type Move = "rock" | "scissors" | "paper" | "water"
 export type GameScreen =
   | "entry"
   | "menu"
@@ -40,6 +40,10 @@ export interface Player {
   tournamentEntry?: boolean
   /** Скрыть аватар из ВК (купили за 100 голосов) */
   hideVkAvatar?: boolean
+  /** Карта «Лава»: осталось использований (5 за покупку) */
+  lavaCardUses?: number
+  /** Карта «Вода»: осталось использований (3 за покупку). Побеждает камень, проигрывает бумаге, ничья с ножницами. */
+  waterCardUses?: number
 }
 
 export interface LeaderboardEntry {
@@ -150,6 +154,10 @@ interface GameState {
   /** Лимит вывода: от 200 на балансе, не более 10 000 в день */
   withdrawState: { date: string; amount: number }
   recordWithdraw: (amount: number) => void
+  /** Горячая новинка: карта «Лава», остаток в наличии (3 штуки всего) */
+  lavaCardStock: number
+  purchaseLavaCard: () => boolean
+  purchaseWaterCard: () => boolean
 }
 
 const GameContext = createContext<GameState | null>(null)
@@ -289,6 +297,81 @@ export function getFillerBetEntries(count: number): BetEntry[] {
 /** Интервал обновления рейтинга — каждые 30 секунд (видно изменение голосов и мест) */
 const LEADERBOARD_UPDATE_MS = 30 * 1000
 
+/** Сохранение в localStorage: версия для совместимости при будущих обновлениях */
+const SAVE_STORAGE_KEY = "rps_vk_save"
+const SAVE_VERSION = 1
+
+const DEFAULT_PLAYER: Player = {
+  id: "player1",
+  name: "Игрок",
+  avatar: "И",
+  avatarUrl: "",
+  balance: 100,
+  wins: 0,
+  losses: 0,
+  weekWins: 0,
+  weekEarnings: 0,
+  vip: false,
+}
+
+function loadSavedState(): {
+  player: Player
+  withdrawState: { date: string; amount: number }
+  lavaCardStock: number
+} | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = window.localStorage.getItem(SAVE_STORAGE_KEY)
+    if (!raw) return null
+    const data = JSON.parse(raw) as { version?: number; player?: Partial<Player>; withdrawState?: { date: string; amount: number }; lavaCardStock?: number }
+    if (!data || (data.version != null && data.version > SAVE_VERSION)) return null
+    const player: Player = { ...DEFAULT_PLAYER, ...data.player }
+    const withdrawState = data.withdrawState && typeof data.withdrawState.amount === "number"
+      ? { date: String(data.withdrawState.date ?? ""), amount: Number(data.withdrawState.amount) }
+      : { date: "", amount: 0 }
+    const lavaCardStock = typeof data.lavaCardStock === "number" ? Math.max(0, data.lavaCardStock) : 3
+    return { player, withdrawState, lavaCardStock }
+  } catch {
+    return null
+  }
+}
+
+function saveState(player: Player, withdrawState: { date: string; amount: number }, lavaCardStock: number) {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(
+      SAVE_STORAGE_KEY,
+      JSON.stringify({
+        version: SAVE_VERSION,
+        player: {
+          id: player.id,
+          name: player.name,
+          avatar: player.avatar,
+          avatarUrl: player.avatarUrl,
+          balance: player.balance,
+          wins: player.wins,
+          losses: player.losses,
+          weekWins: player.weekWins,
+          weekEarnings: player.weekEarnings,
+          vip: player.vip,
+          fastMatchBoosts: player.fastMatchBoosts,
+          victoryAnimation: player.victoryAnimation,
+          cardSkin: player.cardSkin,
+          avatarFrame: player.avatarFrame,
+          tournamentEntry: player.tournamentEntry,
+          hideVkAvatar: player.hideVkAvatar,
+          lavaCardUses: player.lavaCardUses,
+          waterCardUses: player.waterCardUses,
+        },
+        withdrawState: { date: withdrawState.date, amount: withdrawState.amount },
+        lavaCardStock,
+      })
+    )
+  } catch {
+    // ignore
+  }
+}
+
 function shuffleEarnings(entries: Omit<LeaderboardEntry, "rank">[]): Omit<LeaderboardEntry, "rank">[] {
   return entries.map((e) => ({
     ...e,
@@ -301,18 +384,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [screen, setScreen] = useState<GameScreen>("entry")
   const [vkUser, setVkUser] = useState<VKUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [player, setPlayer] = useState<Player>({
-    id: "player1",
-    name: "Игрок",
-    avatar: "И",
-    avatarUrl: "",
-    balance: 100,
-    wins: 0,
-    losses: 0,
-    weekWins: 0,
-    weekEarnings: 0,
-    vip: false,
-  })
+  const [player, setPlayer] = useState<Player>(DEFAULT_PLAYER)
   const [opponent, setOpponent] = useState<Player | null>(null)
   const [currentBet, setCurrentBet] = useState(5)
   const [lastResult, setLastResult] = useState<MatchResult | null>(null)
@@ -322,6 +394,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [leaderboardVersion, setLeaderboardVersion] = useState(0)
   const [totalRounds, setTotalRounds] = useState<1 | 3 | 5>(1)
   const [withdrawState, setWithdrawState] = useState({ date: "", amount: 0 })
+  const [lavaCardStock, setLavaCardStock] = useState(3)
+  const [hasLoadedSave, setHasLoadedSave] = useState(false)
   const leaderboardDataRef = useRef(
     STATIC_LEADERBOARD.map((e) => ({ ...e }))
   )
@@ -374,6 +448,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval)
   }, [])
 
+  // Загрузка сохранённых данных (совместимость с будущими версиями: новые поля берутся из дефолтов)
+  useEffect(() => {
+    const saved = loadSavedState()
+    if (saved) {
+      setPlayer(saved.player)
+      setWithdrawState(saved.withdrawState)
+      setLavaCardStock(saved.lavaCardStock)
+    }
+    setHasLoadedSave(true)
+  }, [])
+
+  // Сохранение в localStorage при изменении игрока, вывода и остатка карты «Лава»
+  useEffect(() => {
+    if (!hasLoadedSave) return
+    saveState(player, withdrawState, lavaCardStock)
+  }, [hasLoadedSave, player, withdrawState, lavaCardStock])
+
   // Initialize only VK Bridge; пользователь входит по кнопке «Войти» на экране входа
   useEffect(() => {
     initVKBridge().finally(() => setIsLoading(false))
@@ -397,18 +488,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const logoutWithVK = useCallback(() => {
     setVkUser(null)
-    setPlayer({
-      id: "player1",
-      name: "Игрок",
-      avatar: "И",
-      avatarUrl: "",
-      balance: 100,
-      wins: 0,
-      losses: 0,
-      weekWins: 0,
-      weekEarnings: 0,
-      vip: false,
-    })
+    setPlayer((p) => ({ ...p, id: "player1", name: "Игрок", avatar: "И", avatarUrl: "" }))
     setScreen("entry")
   }, [setScreen])
 
@@ -701,6 +781,29 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     )
   }, [])
 
+  const LAVA_CARD_PRICE = 120_000
+  const purchaseLavaCard = useCallback(() => {
+    if (lavaCardStock <= 0 || player.balance < LAVA_CARD_PRICE) return false
+    setLavaCardStock((s) => s - 1)
+    setPlayer((p) => ({
+      ...p,
+      balance: p.balance - LAVA_CARD_PRICE,
+      lavaCardUses: (p.lavaCardUses ?? 0) + 5,
+    }))
+    return true
+  }, [lavaCardStock, player.balance])
+
+  const WATER_CARD_PRICE = 20
+  const purchaseWaterCard = useCallback(() => {
+    if (player.balance < WATER_CARD_PRICE) return false
+    setPlayer((p) => ({
+      ...p,
+      balance: p.balance - WATER_CARD_PRICE,
+      waterCardUses: (p.waterCardUses ?? 0) + 3,
+    }))
+    return true
+  }, [player.balance])
+
   return (
     <GameContext.Provider
       value={{
@@ -736,6 +839,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         setTotalRounds,
         withdrawState,
         recordWithdraw,
+        lavaCardStock,
+        purchaseLavaCard,
+        purchaseWaterCard,
       }}
     >
       {children}
