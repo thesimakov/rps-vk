@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { initVKBridge, getVKUser, getBridgeReady, type VKUser } from "@/lib/vk-bridge"
 import {
-  getVKOAuthRedirectUrl,
+  openVKOAuthPopup,
   parseVKHashFragment,
   fetchVKUserByToken,
   saveVKOAuthSession,
@@ -557,7 +557,28 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       return
     }
     if (isVKOAuthConfigured()) {
-      window.location.href = getVKOAuthRedirectUrl()
+      const result = await openVKOAuthPopup()
+      if (!result) return
+      const user = await fetchVKUserByToken(result.access_token, result.user_id)
+      if (user) {
+        const expires_at = result.expires_in ? Math.floor(Date.now() / 1000) + result.expires_in : 0
+        saveVKOAuthSession({
+          access_token: result.access_token,
+          user_id: result.user_id,
+          expires_at,
+          user,
+        })
+        setVkUser(user)
+        setPlayer((p) => ({
+          ...p,
+          id: `vk_${user.id}`,
+          name: user.first_name,
+          avatar: user.first_name.charAt(0).toUpperCase(),
+          avatarUrl: user.photo_200 || user.photo_100 || "",
+          hideVkAvatar: p.hideVkAvatar ?? false,
+        }))
+        setScreen("menu")
+      }
     }
   }, [])
 

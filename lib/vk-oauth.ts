@@ -45,6 +45,86 @@ export function getVKOAuthRedirectUrl(redirectUri?: string): string {
 }
 
 /**
+ * URL страницы, на которую ВК сделает редирект после авторизации в попапе.
+ * Должен быть зарегистрирован в настройках приложения ВК (Redirect URI).
+ */
+export function getVKOAuthPopupCallbackUrl(): string {
+  if (typeof window === "undefined") return ""
+  return `${window.location.origin}/vk-callback`
+}
+
+/** Тип сообщения от попапа callback к окну приложения */
+export const VK_OAUTH_MESSAGE_TYPE = "rps_vk_oauth_result"
+
+export interface VKOAuthMessagePayload {
+  type: typeof VK_OAUTH_MESSAGE_TYPE
+  access_token: string
+  user_id: number
+  expires_in: number
+}
+
+/**
+ * Открывает стационарное (всплывающее) окно ВК для запроса доступа к данным.
+ * Пользователь принимает или отклоняет доступ; при принятии ВК перенаправляет на /vk-callback,
+ * откуда в основное окно отправляется postMessage с токеном.
+ * Возвращает Promise с данными или null при отмене/ошибке.
+ */
+export function openVKOAuthPopup(): Promise<{ access_token: string; user_id: number; expires_in: number } | null> {
+  return new Promise((resolve) => {
+    if (typeof window === "undefined") {
+      resolve(null)
+      return
+    }
+    const callbackUrl = getVKOAuthPopupCallbackUrl()
+    const authUrl = getVKOAuthRedirectUrl(callbackUrl)
+    const width = 600
+    const height = 500
+    const left = Math.round((window.screen.width - width) / 2)
+    const top = Math.round((window.screen.height - height) / 2)
+    const popup = window.open(
+      authUrl,
+      "vk_oauth",
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=yes,resizable=yes`
+    )
+    if (!popup) {
+      resolve(null)
+      return
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      const data = event.data as VKOAuthMessagePayload | undefined
+      if (data?.type !== VK_OAUTH_MESSAGE_TYPE) return
+      cleanup()
+      try {
+        popup.close()
+      } catch {
+        // ignore
+      }
+      resolve({
+        access_token: data.access_token,
+        user_id: data.user_id,
+        expires_in: data.expires_in ?? 0,
+      })
+    }
+
+    const checkClosed = setInterval(() => {
+      if (popup.closed) {
+        cleanup()
+        resolve(null)
+      }
+    }, 300)
+
+    const cleanup = () => {
+      clearInterval(checkClosed)
+      window.removeEventListener("message", handleMessage)
+    }
+
+    window.addEventListener("message", handleMessage)
+  })
+}
+
+/**
  * Парсит фрагмент URL после редиректа от VK (access_token, user_id, expires_in).
  */
 export function parseVKHashFragment(hash: string): { access_token: string; user_id: number; expires_in: number } | null {
