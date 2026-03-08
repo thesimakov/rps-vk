@@ -44,6 +44,12 @@ export interface Player {
   lavaCardUses?: number
   /** Карта «Вода»: осталось использований (3 за покупку). Побеждает камень, проигрывает бумаге, ничья с ножницами. */
   waterCardUses?: number
+  /** Приглашённые друзья (до 4 слотов). Когда друг принимает приглашение — появляется в ячейке. */
+  invitedFriends?: Array<{ id: number; first_name: string; last_name: string; photo_200: string } | null>
+  /** Награда 100 голосов за 4 приглашённых друга уже получена */
+  invitedRewardClaimed?: boolean
+  /** Награда 100 голосов за пост «расскажи друзьям» уже получена */
+  wallPostRewardClaimed?: boolean
 }
 
 export interface LeaderboardEntry {
@@ -362,6 +368,9 @@ function saveState(player: Player, withdrawState: { date: string; amount: number
           hideVkAvatar: player.hideVkAvatar,
           lavaCardUses: player.lavaCardUses,
           waterCardUses: player.waterCardUses,
+          invitedFriends: player.invitedFriends,
+          invitedRewardClaimed: player.invitedRewardClaimed,
+          wallPostRewardClaimed: player.wallPostRewardClaimed,
         },
         withdrawState: { date: withdrawState.date, amount: withdrawState.amount },
         lavaCardStock,
