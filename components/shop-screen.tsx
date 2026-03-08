@@ -3,8 +3,12 @@
 import { useState, useEffect, useRef } from "react"
 import { useGame } from "@/lib/game-context"
 import { formatAmount } from "@/lib/format-amount"
-import { purchaseVKVoices, isVKEnvironment } from "@/lib/vk-bridge"
-import { ArrowLeft, Crown, Zap, Sparkles, Box, Palette, Coins, Wallet, Flame, Droplets } from "lucide-react"
+import { purchaseVKVoices, isVKEnvironment, showFriendsPicker, showInviteBox, showWallPostBox } from "@/lib/vk-bridge"
+import { ArrowLeft, Crown, Zap, Sparkles, Box, Palette, Coins, Wallet, Flame, Droplets, UserPlus, Share2, X } from "lucide-react"
+
+const INVITED_SLOTS = 4
+const INVITE_REWARD = 100
+const WALL_POST_REWARD = 100
 
 interface ShopItem {
   id: string
@@ -185,12 +189,27 @@ function applyPrize(prize: ChestPrize, player: { balance: number; fastMatchBoost
   return { balance, fastMatchBoosts }
 }
 
+/** Нормализует массив приглашённых до 4 слотов (null = пусто) */
+function normalizeInvitedSlots(
+  invitedFriends: Array<{ id: number; first_name: string; last_name: string; photo_200: string } | null> | undefined
+): Array<{ id: number; first_name: string; last_name: string; photo_200: string } | null> {
+  const base = Array.from({ length: INVITED_SLOTS }, (_, i) => invitedFriends?.[i] ?? null)
+  return base
+}
+
 export function ShopScreen() {
   const { setScreen, player, setPlayer, lavaCardStock, purchaseLavaCard, purchaseWaterCard } = useGame()
   const [topUpLoading, setTopUpLoading] = useState<number | null>(null)
   const [openingChest, setOpeningChest] = useState<{ type: ChestType; prizes: ChestPrize[] } | null>(null)
   const [chestPhase, setChestPhase] = useState<"fly" | "open" | "reward" | "collect">("fly")
+  const [inviteLoading, setInviteLoading] = useState(false)
+  const [wallPostLoading, setWallPostLoading] = useState(false)
   const confettiRef = useRef<HTMLDivElement>(null)
+
+  const invitedSlots = normalizeInvitedSlots(player.invitedFriends)
+  const invitedCount = invitedSlots.filter(Boolean).length
+  const canClaimInviteReward = invitedCount >= INVITED_SLOTS && !player.invitedRewardClaimed
+  const canClaimWallPostReward = !player.wallPostRewardClaimed
 
   useEffect(() => {
     if (!openingChest) return
@@ -229,6 +248,67 @@ export function ShopScreen() {
       }
     } finally {
       setTopUpLoading(null)
+    }
+  }
+
+  const handlePickFriend = async (slotIndex: number) => {
+    setInviteLoading(true)
+    try {
+      const users = await showFriendsPicker()
+      if (users?.length) {
+        const friend = users[0]
+        setPlayer((p) => {
+          const current = normalizeInvitedSlots(p.invitedFriends)
+          const next = [...current]
+          next[slotIndex] = { id: friend.id, first_name: friend.first_name, last_name: friend.last_name, photo_200: friend.photo_200 }
+          return { ...p, invitedFriends: next }
+        })
+      }
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleRemoveInvited = (slotIndex: number) => {
+    setPlayer((p) => {
+      const current = normalizeInvitedSlots(p.invitedFriends)
+      const next = [...current]
+      next[slotIndex] = null
+      return { ...p, invitedFriends: next }
+    })
+  }
+
+  const handleInviteFriends = async () => {
+    setInviteLoading(true)
+    try {
+      await showInviteBox()
+    } finally {
+      setInviteLoading(false)
+    }
+  }
+
+  const handleClaimInviteReward = () => {
+    if (!canClaimInviteReward) return
+    setPlayer((p) => ({ ...p, balance: p.balance + INVITE_REWARD, invitedRewardClaimed: true }))
+  }
+
+  const buildWallPostMessage = () => {
+    const name = player.name || "Игрок"
+    const appLink = typeof window !== "undefined" ? window.location.href.split("?")[0] : ""
+    return `Играй со мной в игру «Камень, ножницы, бумага»! ${name} приглашает тебя — переходи по ссылке и сыграем: ${appLink}`
+  }
+
+  const handleWallPostAndReward = async () => {
+    if (!canClaimWallPostReward) return
+    setWallPostLoading(true)
+    try {
+      const message = buildWallPostMessage()
+      const postId = await showWallPostBox(message)
+      if (postId != null) {
+        setPlayer((p) => ({ ...p, balance: p.balance + WALL_POST_REWARD, wallPostRewardClaimed: true }))
+      }
+    } finally {
+      setWallPostLoading(false)
     }
   }
 
@@ -330,6 +410,108 @@ export function ShopScreen() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* 100 голосов за приглашение 4 друзей */}
+      <div className="w-full max-w-md mb-6 bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <UserPlus className="h-5 w-5 text-primary" />
+          <span className="font-bold text-base text-foreground">Получить {INVITE_REWARD} голосов за приглашение 4 друзей</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Выберите друзей, пригласите их в игру. Когда они примут приглашение — появятся в ячейках. За 4 принявших приглашение — награда.
+        </p>
+        {!isVKEnvironment() && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+            Откройте приложение в ВКонтакте, чтобы выбирать друзей и приглашать.
+          </p>
+        )}
+        <div className="grid grid-cols-2 gap-2 mb-3">
+          {invitedSlots.map((friend, index) => (
+            <div
+              key={index}
+              className="rounded-xl border border-border/40 bg-muted/20 p-2 min-h-[72px] flex flex-col items-center justify-center"
+            >
+              {friend ? (
+                <>
+                  <img
+                    src={friend.photo_200 || ""}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover mb-1"
+                  />
+                  <span className="text-xs font-medium text-foreground truncate w-full text-center">
+                    {friend.first_name} {friend.last_name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInvited(index)}
+                    disabled={inviteLoading}
+                    className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                    Удалить
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handlePickFriend(index)}
+                  disabled={inviteLoading || !isVKEnvironment()}
+                  className="w-full h-full flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground transition-colors rounded-lg border border-dashed border-border/50 py-2"
+                >
+                  <UserPlus className="h-6 w-6" />
+                  <span className="text-xs">Выбрать друга</span>
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={handleInviteFriends}
+            disabled={inviteLoading || !isVKEnvironment()}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-primary/80 text-primary-foreground text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+          >
+            <UserPlus className="h-4 w-4" />
+            Пригласить
+          </button>
+          {canClaimInviteReward && (
+            <button
+              type="button"
+              onClick={handleClaimInviteReward}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-accent-foreground text-sm font-bold transition-all active:scale-95"
+            >
+              <Coins className="h-4 w-4" />
+              Получить {INVITE_REWARD} голосов
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 100 голосов — расскажи друзьям (пост на стену) */}
+      <div className="w-full max-w-md mb-6 bg-card/40 backdrop-blur-sm border border-border/30 rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Share2 className="h-5 w-5 text-secondary" />
+          <span className="font-bold text-base text-foreground">Получить {WALL_POST_REWARD} голосов — расскажи друзьям</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Опубликуйте на своей стене приглашение поиграть в игру. После публикации вам начислят {WALL_POST_REWARD} голосов.
+        </p>
+        {!isVKEnvironment() && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mb-2">
+            Откройте приложение в ВКонтакте, чтобы опубликовать пост на стене.
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={handleWallPostAndReward}
+          disabled={!canClaimWallPostReward || wallPostLoading || !isVKEnvironment()}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-secondary text-secondary-foreground text-sm font-bold transition-all active:scale-95 disabled:opacity-50"
+        >
+          <Share2 className="h-4 w-4" />
+          {wallPostLoading ? "Публикация…" : player.wallPostRewardClaimed ? "Награда получена" : `Опубликовать и получить ${WALL_POST_REWARD} голосов`}
+        </button>
       </div>
 
       {/* Items */}
