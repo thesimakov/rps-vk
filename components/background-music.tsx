@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { Music, MusicOff } from "lucide-react"
+import { Volume2, VolumeX } from "lucide-react"
 
 const STORAGE_KEY = "rps_bg_music"
 const MUSIC_SRC = "/bg-music.mp3"
@@ -83,9 +83,9 @@ export function BackgroundMusic() {
       title={enabled && playing ? "Музыка вкл." : "Музыка выкл."}
     >
       {enabled && playing ? (
-        <Music className="h-5 w-5 text-primary" />
+        <Volume2 className="h-5 w-5 text-primary" />
       ) : (
-        <MusicOff className="h-5 w-5 text-muted-foreground" />
+        <VolumeX className="h-5 w-5 text-muted-foreground" />
       )}
     </button>
   )
