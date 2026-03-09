@@ -17,6 +17,7 @@ import { BetResponseDialog } from "@/components/bet-response-dialog"
 import { ParticlesBg } from "@/components/particles-bg"
 import { WithdrawScreen } from "@/components/withdraw-screen"
 import { EntryScreen } from "@/components/entry-screen"
+import { BackgroundMusic } from "@/components/background-music"
 
 function GameScreen() {
   const { screen, vkUser } = useGame()
@@ -50,6 +51,7 @@ function GameLayout() {
     <div className="relative min-h-screen">
       <ParticlesBg />
       <BetResponseDialog />
+      <BackgroundMusic />
 
       <div className="relative z-10 flex min-h-screen">
         {showLeftSidebar && (

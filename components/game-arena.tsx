@@ -311,41 +311,43 @@ export function GameArena() {
         </div>
       </div>
 
-      {/* Центр: таймер с синим свечением */}
-      <div className="flex flex-col items-center justify-center gap-2 my-4">
-        <div className="relative">
-          <div className="absolute inset-0 bg-sky-500/30 rounded-full blur-xl scale-110" />
-          <div className="relative w-20 h-20 rounded-full bg-sky-600/40 border-2 border-sky-400/50 flex items-center justify-center">
-            <svg className="absolute w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-              <circle cx="40" cy="40" r="36" fill="none" strokeWidth="4" className="stroke-white/20" />
-              <circle
-                cx="40" cy="40" r="36"
-                fill="none"
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeDasharray={2 * Math.PI * 36}
-                strokeDashoffset={2 * Math.PI * 36 * (1 - timeLeft / 15)}
-                className={`transition-all duration-1000 linear ${timerDanger ? "stroke-red-400" : "stroke-sky-400"}`}
-              />
-            </svg>
-            <div className="absolute flex flex-col items-center">
-              <Timer className={`h-4 w-4 mb-0.5 ${timerDanger ? "text-red-300" : "text-sky-300"}`} />
-              <span className={`text-2xl font-black tabular-nums text-white`}>{timeLeft}</span>
+      {/* Центр: таймер и подсказки (счёт раундов вынесен наверх) */}
+      <div className="flex flex-col items-center justify-center gap-2 my-4 w-full max-w-md mx-auto">
+        <div className="flex flex-col items-center justify-center gap-2">
+          <div className="relative">
+            <div className="absolute inset-0 bg-sky-500/30 rounded-full blur-xl scale-110" />
+            <div className="relative w-20 h-20 rounded-full bg-sky-600/40 border-2 border-sky-400/50 flex items-center justify-center">
+              <svg className="absolute w-20 h-20 -rotate-90" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="36" fill="none" strokeWidth="4" className="stroke-white/20" />
+                <circle
+                  cx="40" cy="40" r="36"
+                  fill="none"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 36}
+                  strokeDashoffset={2 * Math.PI * 36 * (1 - timeLeft / 15)}
+                  className={`transition-all duration-1000 linear ${timerDanger ? "stroke-red-400" : "stroke-sky-400"}`}
+                />
+              </svg>
+              <div className="absolute flex flex-col items-center">
+                <Timer className={`h-4 w-4 mb-0.5 ${timerDanger ? "text-red-300" : "text-sky-300"}`} />
+                <span className={`text-2xl font-black tabular-nums text-white`}>{timeLeft}</span>
+              </div>
             </div>
           </div>
+          {drawMessage && (
+            <p className="text-sm text-amber-400 font-bold animate-in fade-in">Ничья! Ещё раунд...</p>
+          )}
+          {roundHintMessage && !drawMessage && (
+            <p
+              className={`text-sm font-bold animate-in fade-in ${
+                roundHintMessage.startsWith("Побед") ? "text-emerald-400" : roundHintMessage.startsWith("Поражен") ? "text-red-400" : "text-white/90"
+              }`}
+            >
+              {roundHintMessage}
+            </p>
+          )}
         </div>
-        {drawMessage && (
-          <p className="text-sm text-amber-400 font-bold animate-in fade-in">Ничья! Ещё раунд...</p>
-        )}
-        {roundHintMessage && !drawMessage && (
-          <p
-            className={`text-sm font-bold animate-in fade-in ${
-              roundHintMessage.startsWith("Побед") ? "text-emerald-400" : roundHintMessage.startsWith("Поражен") ? "text-red-400" : "text-white/90"
-            }`}
-          >
-            {roundHintMessage}
-          </p>
-        )}
       </div>
 
       {/* Кнопки выбора: три карты лицевой стороной — игрок сразу видит Камень, Ножницы, Бумагу */}

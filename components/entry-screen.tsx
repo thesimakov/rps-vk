@@ -22,13 +22,13 @@ export function EntryScreen() {
           <button
             type="button"
             onClick={() => loginWithVK()}
-            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-[#2787F5] hover:bg-[#5b9cf0] text-white font-bold text-lg transition-all active:scale-[0.98] shadow-lg shadow-[#2787F5]/30"
+            className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-lg transition-all active:scale-[0.98] shadow-lg shadow-primary/30"
           >
             <LogIn className="h-6 w-6" />
-            Войти через ВКонтакте
+            Войти
           </button>
           <p className="text-center text-xs text-white/50">
-            Вход по аккаунту ВК — можно играть на сайте или в мини-приложении. Оплата и вывод — через ВК; позже подключаем другие способы оплаты.
+            Вход через профиль ВКонтакте. После входа можно играть, оплачивать и выводить деньги.
           </p>
 
           <button
